@@ -7,7 +7,7 @@ A modern, local-first, single-user web app that is a personal training dashboard
 - No authentication (single local user)
 - No automatic backups, no exports (CSV/Excel/JSON/PDF)
 - No nice-to-haves (plate calculator, warm-up generator, rest timer, QR codes, Apple Health, smartwatch, keyboard shortcuts, workout timer)
-- AI Coach is future-only — do not build
+- General AI Coach remains future-only. The narrowly scoped, on-demand AI Set Coach is specified in `docs/AI_SET_COACH.md`; implementation requires explicit approval.
 
 ## Tech requirements
 - Next.js (App Router) + React + TypeScript

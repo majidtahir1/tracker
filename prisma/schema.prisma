@@ -1,0 +1,514 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ---------- Enums ----------
+
+enum MuscleGroup {
+  CHEST
+  UPPER_CHEST
+  BACK
+  LATS
+  FRONT_DELTS
+  LATERAL_DELTS
+  REAR_DELTS
+  TRICEPS
+  BICEPS
+  FOREARMS
+  QUADS
+  HAMSTRINGS
+  GLUTES
+  CALVES
+  CORE
+}
+
+enum Equipment {
+  BARBELL
+  DUMBBELL
+  MACHINE
+  CABLE
+  BODYWEIGHT
+}
+
+enum ExerciseType {
+  HEAVY_COMPOUND // rest 150-180s
+  COMPOUND // rest 120-180s
+  MACHINE_COMPOUND // rest 90-120s
+  ISOLATION // rest 60-90s
+  CORE // rest 45-60s
+}
+
+enum Priority {
+  HIGHEST
+  HIGH
+  MEDIUM
+  NORMAL // "—" in the program tables
+}
+
+enum Difficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum SessionStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+}
+
+enum PrType {
+  HEAVIEST_WEIGHT
+  BEST_E1RM
+  MOST_REPS // at any weight >= previous rep PR weight, see lib/pr.ts
+  MOST_SESSION_VOLUME
+}
+
+enum PhotoAngle {
+  FRONT
+  SIDE
+  BACK
+}
+
+enum NotificationType {
+  PROGRESSION // "Increase Bench Press next workout"
+  DELOAD_UPCOMING // "Deload starts next week"
+  DELOAD_ACTIVE
+  PHOTO_REMINDER // monthly
+  MEASUREMENT_REMINDER
+  NUTRITION_REMINDER // "Protein not logged today"
+  PR_ACHIEVED
+  FATIGUE_WARNING // recovery score low -> suggest reducing load
+}
+
+enum GoalType {
+  BODY_WEIGHT
+  BODY_FAT
+  BENCH_1RM
+  SQUAT_1RM
+  DEADLIFT_1RM
+  SHOULDER_PRESS_1RM
+  MEASUREMENT // uses measurementField
+}
+
+// ---------- Exercise library ----------
+
+model Exercise {
+  id               String       @id @default(cuid())
+  name             String       @unique
+  primaryMuscle    MuscleGroup
+  // JSON array of MuscleGroup strings, e.g. ["FRONT_DELTS","TRICEPS"]
+  secondaryMuscles String       @default("[]")
+  equipment        Equipment
+  type             ExerciseType
+  difficulty       Difficulty   @default(INTERMEDIATE)
+  videoUrl         String?
+  notes            String?
+  isFavorite       Boolean      @default(false)
+  injuryFriendly   Boolean      @default(false)
+  // lb added when double progression triggers (5 barbell/machine stack pairs, 2.5 small isolation)
+  weightIncrement  Float        @default(5)
+  isBodyweight     Boolean      @default(false) // pull-ups, hanging knee raise
+  createdAt        DateTime     @default(now())
+
+  templateSlots    TemplateExercise[]
+  sessionExercises SessionExercise[]
+  substitutionsA   ExerciseAlternative[] @relation("altFor")
+  substitutionsB   ExerciseAlternative[] @relation("altIs")
+  personalRecords  PersonalRecord[]
+  subEventsOld     SubstitutionEvent[]   @relation("subOld")
+  subEventsNew     SubstitutionEvent[]   @relation("subNew")
+}
+
+// Curated "replacement exercises" list shown in the substitution picker.
+model ExerciseAlternative {
+  id            String   @id @default(cuid())
+  exerciseId    String
+  alternativeId String
+  exercise      Exercise @relation("altFor", fields: [exerciseId], references: [id], onDelete: Cascade)
+  alternative   Exercise @relation("altIs", fields: [alternativeId], references: [id], onDelete: Cascade)
+
+  @@unique([exerciseId, alternativeId])
+}
+
+// ---------- Programs and ordered workout templates ----------
+
+model Program {
+  id          String            @id @default(cuid())
+  name        String            @unique
+  description String?
+  isActive    Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  workouts    WorkoutTemplate[]
+}
+
+model WorkoutTemplate {
+  id        String             @id @default(cuid())
+  name      String // "Push Dominant Upper"
+  programId String?
+  dayNumber Int                @default(1) @map("dayOfWeek")
+  sortOrder Int                @default(0)
+  isActive  Boolean            @default(true)
+  program   Program?           @relation(fields: [programId], references: [id], onDelete: Cascade)
+  exercises TemplateExercise[]
+  sessions  WorkoutSession[]
+
+  @@unique([programId, dayNumber])
+}
+
+// THE progression slot. Stable id across substitutions.
+model TemplateExercise {
+  id           String   @id @default(cuid())
+  templateId   String
+  exerciseId   String
+  sortOrder    Int
+  baseSets     Int // Block 1 sets
+  repRangeMin  Int
+  repRangeMax  Int
+  targetRirMin Int // compounds 1, isolation 0
+  targetRirMax Int // compounds 2, isolation 1
+  priority     Priority @default(NORMAL) // program-context: same exercise can differ by day
+  restSeconds  Int
+  isPerSide    Boolean  @default(false) // "10 each leg"
+  notes        String?
+
+  template         WorkoutTemplate     @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  exercise         Exercise            @relation(fields: [exerciseId], references: [id])
+  blockOverrides   BlockOverride[]
+  sessionExercises SessionExercise[]
+  substitutions    SubstitutionEvent[]
+
+  @@unique([templateId, sortOrder])
+}
+
+// "+1 set to X in Block 2/3"
+model BlockOverride {
+  id                 String           @id @default(cuid())
+  templateExerciseId String
+  blockNumber        Int // 2 or 3 (block-cycle-relative)
+  addSets            Int              @default(1)
+  templateExercise   TemplateExercise @relation(fields: [templateExerciseId], references: [id], onDelete: Cascade)
+
+  @@unique([templateExerciseId, blockNumber])
+}
+
+// Audit trail of substitutions on a slot (history itself lives on the slot id).
+model SubstitutionEvent {
+  id                 String           @id @default(cuid())
+  templateExerciseId String
+  oldExerciseId      String
+  newExerciseId      String
+  reason             String?
+  date               String // YYYY-MM-DD local
+  templateExercise   TemplateExercise @relation(fields: [templateExerciseId], references: [id], onDelete: Cascade)
+  oldExercise        Exercise         @relation("subOld", fields: [oldExerciseId], references: [id])
+  newExercise        Exercise         @relation("subNew", fields: [newExerciseId], references: [id])
+}
+
+// ---------- Blocks & weeks ----------
+
+// A 13-week cycle: weeks 1-4 (block phase 1), 5-8 (2), 9-12 (3), 13 deload.
+model TrainingBlock {
+  id          String           @id @default(cuid())
+  cycleNumber Int              @unique // 1st 13-week cycle, 2nd, ...
+  startDate   String // YYYY-MM-DD, always a Monday
+  notes       String?
+  sessions    WorkoutSession[]
+}
+
+// week number & phase are DERIVED from (today - startDate) in lib/schedule.ts,
+// never stored — eliminates drift.
+
+// ---------- Sessions & logging ----------
+
+model WorkoutSession {
+  id          String            @id @default(cuid())
+  templateId  String
+  blockId     String
+  date        String // YYYY-MM-DD local
+  weekInCycle Int // 1..13, snapshot at generation
+  blockPhase  Int // 1,2,3; 0 = deload week
+  isDeload    Boolean           @default(false)
+  status      SessionStatus     @default(PLANNED)
+  startedAt   DateTime?
+  completedAt DateTime?
+  notes       String?
+  totalVolume Float             @default(0) // lb, denormalized on completion
+  template    WorkoutTemplate   @relation(fields: [templateId], references: [id])
+  block       TrainingBlock     @relation(fields: [blockId], references: [id])
+  exercises   SessionExercise[]
+
+  @@unique([templateId, date])
+  @@index([date])
+}
+
+model SessionExercise {
+  id                 String  @id @default(cuid())
+  sessionId          String
+  templateExerciseId String // progression lineage key
+  exerciseId         String // resolved exercise at session time
+  sortOrder          Int
+  // --- snapshot of resolved targets (block + deload applied) ---
+  targetSets         Int
+  targetRepMin       Int
+  targetRepMax       Int
+  targetRirMin       Int
+  targetRirMax       Int
+  restSeconds        Int
+  targetWeight       Float? // recommendation engine output, lb
+  recommendation     String? // "INCREASE" | "REPEAT" | "REDUCE" | null (first time)
+  notes              String?
+
+  session          WorkoutSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  templateExercise TemplateExercise @relation(fields: [templateExerciseId], references: [id])
+  exercise         Exercise         @relation(fields: [exerciseId], references: [id])
+  sets             SetLog[]
+
+  @@unique([sessionId, sortOrder])
+}
+
+model SetLog {
+  id                String          @id @default(cuid())
+  sessionExerciseId String
+  setNumber         Int
+  weight            Float // lb; bodyweight exercises log added weight (0 ok)
+  reps              Int
+  rir               Int?
+  completed         Boolean         @default(true)
+  notes             String?
+  loggedAt          DateTime        @default(now())
+  sessionExercise   SessionExercise @relation(fields: [sessionExerciseId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionExerciseId, setNumber])
+}
+
+// ---------- Personal records (STORED — see decision #3) ----------
+
+model PersonalRecord {
+  id                 String   @id @default(cuid())
+  exerciseId         String
+  templateExerciseId String? // lineage, when achieved in a program slot
+  type               PrType
+  value              Float // lb, e1rm lb, reps, or session volume lb
+  weight             Float? // context for MOST_REPS
+  reps               Int?
+  date               String // YYYY-MM-DD
+  setLogId           String? // provenance
+  seenByUser         Boolean  @default(false) // drives "new PR" badge
+  exercise           Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@index([exerciseId, type, value])
+}
+
+// ---------- Body / lifestyle tracking ----------
+
+model BodyMeasurement {
+  id           String  @id @default(cuid())
+  date         String  @unique // YYYY-MM-DD
+  weight       Float? // lb
+  bodyFat      Float? // %
+  waist        Float? // inches (all girths in inches)
+  chest        Float?
+  shoulders    Float?
+  leftArm      Float?
+  rightArm     Float?
+  leftForearm  Float?
+  rightForearm Float?
+  leftThigh    Float?
+  rightThigh   Float?
+  leftCalf     Float?
+  rightCalf    Float?
+  neck         Float?
+  notes        String?
+}
+
+model ProgressPhoto {
+  id       String     @id @default(cuid())
+  date     String // YYYY-MM-DD
+  angle    PhotoAngle
+  filePath String // relative to /public, e.g. "/photos/2026-07-06-front.jpg"
+  weight   Float?
+  bodyFat  Float?
+  notes    String?
+
+  @@unique([date, angle])
+}
+
+model NutritionLog {
+  id       String  @id @default(cuid())
+  date     String  @unique // YYYY-MM-DD
+  calories Int?
+  protein  Int? // g
+  carbs    Int?
+  fat      Int?
+  fiber    Int?
+  waterOz  Int?
+  notes    String?
+}
+
+model RecoveryLog {
+  id                String  @id @default(cuid())
+  date              String  @unique // YYYY-MM-DD
+  sleepHours        Float?
+  sleepQuality      Int? // 1-5
+  stress            Int? // 1-5 (5 = worst)
+  energy            Int? // 1-5
+  motivation        Int? // 1-5
+  workoutDifficulty Int? // 1-5 (5 = brutal), yesterday's session
+  soreness          Int? // 1-5 (5 = wrecked)
+  score             Int? // 0-100, computed & stored on save
+  notes             String?
+}
+
+// ---------- Goals & notifications ----------
+
+model Goal {
+  id               String   @id @default(cuid())
+  type             GoalType
+  measurementField String? // "waist", "chest", ... when type=MEASUREMENT
+  label            String // "Bench 1RM", "Waist"
+  startValue       Float
+  targetValue      Float
+  unit             String // "lb", "%", "in"
+  targetDate       String? // YYYY-MM-DD
+  achievedAt       String? // YYYY-MM-DD
+  createdAt        DateTime @default(now())
+
+  @@unique([type, measurementField])
+}
+
+// currentValue is DERIVED server-side (latest measurement / best e1rm), never stored.
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  title     String
+  body      String?
+  href      String? // deep link, e.g. "/workout/today"
+  // idempotency key so generators never duplicate: e.g. "PROGRESSION:tmplExId:2026-07-06"
+  dedupeKey String           @unique
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([read, createdAt])
+}
+
+// One cached AI dashboard reflection per completed workout.
+model CoachBrief {
+  id            String   @id @default(cuid())
+  sessionId     String   @unique
+  headline      String
+  message       String
+  encouragement String
+  source        String
+  createdAt     DateTime @default(now())
+}
+
+// ---------- WHOOP integration ----------
+// Typed mirrors of the WHOOP API v2 domains, keyed by WHOOP's own ids for
+// idempotent upserts. `date` is the local YYYY-MM-DD day the record belongs
+// to (cycle start day; sleep wake day; workout start day).
+
+// Single-row OAuth connection state (id="singleton").
+model WhoopConnection {
+  id            String    @id @default("singleton")
+  whoopUserId   String?
+  accessToken   String
+  refreshToken  String
+  expiresAt     DateTime
+  scope         String?
+  lastSyncedAt  DateTime?
+  lastSyncError String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// Physiological day: strain and heart-rate load.
+model WhoopCycle {
+  id           String    @id // WHOOP cycle id
+  date         String // YYYY-MM-DD, cycle start local day
+  start        DateTime
+  end          DateTime? // null = current (in-progress) cycle
+  scoreState   String // SCORED | PENDING_SCORE | UNSCORABLE
+  strain       Float? // 0-21
+  kilojoule    Float?
+  avgHeartRate Int?
+  maxHeartRate Int?
+
+  @@index([date])
+}
+
+// Recovery score for a cycle (WHOOP's native 0-100).
+model WhoopRecovery {
+  cycleId          String  @id
+  sleepId          String?
+  date             String // YYYY-MM-DD, matches the cycle's day
+  scoreState       String
+  recoveryScore    Int? // 0-100
+  restingHeartRate Float? // bpm
+  hrvRmssdMilli    Float? // ms
+  spo2Percentage   Float?
+  skinTempCelsius  Float?
+  userCalibrating  Boolean @default(false)
+
+  @@index([date])
+}
+
+// Sleep activity (naps flagged, excluded from daily rollups).
+model WhoopSleep {
+  id                 String   @id // WHOOP sleep UUID
+  date               String // YYYY-MM-DD of wake time (end)
+  start              DateTime
+  end                DateTime
+  isNap              Boolean  @default(false)
+  scoreState         String
+  performancePct     Float?
+  consistencyPct     Float?
+  efficiencyPct      Float?
+  respiratoryRate    Float?
+  inBedMilli         Int?
+  awakeMilli         Int?
+  lightSleepMilli    Int?
+  slowWaveSleepMilli Int?
+  remSleepMilli      Int?
+  sleepCycleCount    Int?
+  disturbanceCount   Int?
+  sleepDebtMilli     Int? // sleep_needed.need_from_sleep_debt_milli
+
+  @@index([date])
+}
+
+// WHOOP-detected activities; read-only context alongside logged lifting.
+model WhoopWorkout {
+  id                String   @id // WHOOP workout UUID
+  date              String // YYYY-MM-DD of start time
+  start             DateTime
+  end               DateTime
+  sportName         String
+  scoreState        String
+  strain            Float?
+  avgHeartRate      Int?
+  maxHeartRate      Int?
+  kilojoule         Float?
+  distanceMeter     Float?
+  altitudeGainMeter Float?
+
+  @@index([date])
+}
+
+// ---------- App settings (single row, id="singleton") ----------
+
+model AppSettings {
+  id                     String @id @default("singleton")
+  proteinTargetG         Int    @default(180)
+  calorieTarget          Int    @default(2800)
+  deloadWeightPct        Float  @default(0.825) // 80-85% -> midpoint
+  photoReminderDay       Int    @default(1) // day of month
+  measurementReminderDay Int    @default(1)
+}
