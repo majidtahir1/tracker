@@ -15,6 +15,7 @@ import {
   type LocalDate,
 } from "@/lib/dates";
 import { weekInCycle, isDeloadWeek, CYCLE_WEEKS } from "@/lib/schedule";
+import { matchWhoopWorkout } from "@/lib/whoop/match";
 
 export type DayState = "completed" | "missed" | "rest" | "future" | "in-progress";
 
@@ -54,6 +55,8 @@ export interface SelectedDayDetail {
     setsLogged: number;
     exerciseCount: number;
     prCount: number;
+    /** Strain of the WHOOP activity overlapping this session, if matched. */
+    whoopStrain: number | null;
   } | null;
   whoopWorkouts: SelectedDayWhoopWorkout[];
   reminders: string[];
@@ -188,12 +191,20 @@ export async function getCalendarData(
     const reminders: string[] = [];
     if (day.photoReminder) reminders.push("Monthly progress photos due");
     if (day.measurementReminder) reminders.push("Monthly measurements due");
-    const dayWhoop: SelectedDayWhoopWorkout[] = (whoopByDate.get(selectedDate) ?? []).map((w) => ({
-      sportName: w.sportName,
-      durationMin: Math.max(1, Math.round((w.end.getTime() - w.start.getTime()) / 60000)),
-      strain: w.strain != null ? Math.round(w.strain * 10) / 10 : null,
-      calories: w.kilojoule != null ? Math.round(w.kilojoule / 4.184) : null,
-    }));
+    // The WHOOP activity overlapping the logged session shows as the
+    // session's strain, not as a separate activity row.
+    const dayCandidates = whoopByDate.get(selectedDate) ?? [];
+    const sessionWhoop = sessionRow
+      ? matchWhoopWorkout(sessionRow.startedAt, sessionRow.completedAt, dayCandidates)
+      : null;
+    const dayWhoop: SelectedDayWhoopWorkout[] = dayCandidates
+      .filter((w) => w !== sessionWhoop)
+      .map((w) => ({
+        sportName: w.sportName,
+        durationMin: Math.max(1, Math.round((w.end.getTime() - w.start.getTime()) / 60000)),
+        strain: w.strain != null ? Math.round(w.strain * 10) / 10 : null,
+        calories: w.kilojoule != null ? Math.round(w.kilojoule / 4.184) : null,
+      }));
     selected = {
       date: selectedDate,
       display: fmtDisplay(selectedDate),
@@ -208,6 +219,8 @@ export async function getCalendarData(
             setsLogged: sessionRow.exercises.reduce((a, e) => a + e.sets.length, 0),
             exerciseCount: sessionRow.exercises.length,
             prCount,
+            whoopStrain:
+              sessionWhoop?.strain != null ? Math.round(sessionWhoop.strain * 10) / 10 : null,
           }
         : null,
       whoopWorkouts: dayWhoop,

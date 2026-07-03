@@ -4,6 +4,7 @@
  * compute here; clients receive plain serialized props.
  */
 import { prisma } from "@/lib/db";
+import { matchWhoopWorkout } from "@/lib/whoop/match";
 import {
   addDays,
   fmtDisplay,
@@ -401,6 +402,8 @@ export interface SessionSummaryData {
   volumeDeltaPct: number | null;
   prs: SessionPrChip[];
   exercises: SummaryExercise[];
+  /** WHOOP activity matched to this session by time overlap, if any. */
+  whoop: SessionWhoopStats | null;
 }
 
 export interface SessionDetail {
@@ -583,6 +586,14 @@ async function buildSummary(
       ? Math.max(1, Math.round((raw.completedAt.getTime() - raw.startedAt.getTime()) / 60000))
       : null;
 
+  const whoopCandidates =
+    raw.startedAt && raw.completedAt
+      ? await prisma.whoopWorkout.findMany({ where: { date: raw.date } })
+      : [];
+  const whoop = toSessionWhoopStats(
+    matchWhoopWorkout(raw.startedAt, raw.completedAt, whoopCandidates),
+  );
+
   return {
     totalVolume,
     completedSets,
@@ -595,6 +606,7 @@ async function buildSummary(
     volumeDeltaPct,
     prs,
     exercises,
+    whoop,
   };
 }
 
@@ -602,9 +614,41 @@ function trimWeight(w: number): string {
   return Number.isInteger(w) ? String(w) : String(Math.round(w * 10) / 10);
 }
 
+function toSessionWhoopStats(
+  w: {
+    sportName: string;
+    start: Date;
+    end: Date;
+    strain: number | null;
+    avgHeartRate: number | null;
+    maxHeartRate: number | null;
+    kilojoule: number | null;
+  } | null,
+): SessionWhoopStats | null {
+  if (!w) return null;
+  return {
+    sportName: w.sportName,
+    strain: w.strain != null ? Math.round(w.strain * 10) / 10 : null,
+    avgHeartRate: w.avgHeartRate,
+    maxHeartRate: w.maxHeartRate,
+    calories: w.kilojoule != null ? Math.round(w.kilojoule / 4.184) : null,
+    durationMin: Math.max(1, Math.round((w.end.getTime() - w.start.getTime()) / 60000)),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // History (app/history/page.tsx)
 // ---------------------------------------------------------------------------
+
+/** WHOOP metrics for the activity that overlaps a logged session in time. */
+export interface SessionWhoopStats {
+  sportName: string;
+  strain: number | null; // 1dp
+  avgHeartRate: number | null;
+  maxHeartRate: number | null;
+  calories: number | null; // kcal = kilojoule / 4.184, rounded
+  durationMin: number;
+}
 
 export interface HistorySessionRow {
   id: string;
@@ -618,6 +662,8 @@ export interface HistorySessionRow {
   completedSets: number;
   targetSets: number;
   prCount: number;
+  /** WHOOP activity matched to this session by time overlap, if any. */
+  whoop: SessionWhoopStats | null;
 }
 
 /** WHOOP-detected activity shown read-only alongside logged sessions. */
@@ -678,6 +724,22 @@ export async function getHistory(): Promise<HistoryWeekGroup[]> {
     select: { date: true, exerciseId: true },
   });
 
+  // Absorb WHOOP activities into the sessions they overlap; the rest list
+  // standalone. Each activity matches at most one session.
+  const matchedWhoop = new Map<string, (typeof whoopRaw)[number]>(); // sessionId -> activity
+  const claimedWhoopIds = new Set<string>();
+  for (const s of sessions) {
+    const match = matchWhoopWorkout(
+      s.startedAt,
+      s.completedAt,
+      whoopRaw.filter((w) => !claimedWhoopIds.has(w.id)),
+    );
+    if (match) {
+      matchedWhoop.set(s.id, match);
+      claimedWhoopIds.add(match.id);
+    }
+  }
+
   const groups = new Map<LocalDate, HistoryWeekGroup>();
   const groupFor = (date: LocalDate, weekInCycle: number): HistoryWeekGroup => {
     const weekStart = isoWeekMonday(date);
@@ -727,10 +789,12 @@ export async function getHistory(): Promise<HistoryWeekGroup[]> {
       ),
       targetSets: s.exercises.reduce((n, ex) => n + ex.targetSets, 0),
       prCount,
+      whoop: toSessionWhoopStats(matchedWhoop.get(s.id) ?? null),
     });
   }
 
   for (const w of whoopRaw) {
+    if (claimedWhoopIds.has(w.id)) continue; // shown on its matched session
     const hasMetrics =
       w.strain != null ||
       w.avgHeartRate != null ||

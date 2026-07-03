@@ -87,6 +87,8 @@ export default async function HistoryPage() {
                         </div>
                         <p className="mt-0.5 text-xs tabular-nums text-text-3">
                           {s.dateLabel} · {s.completedSets}/{s.targetSets} sets
+                          {s.whoop?.strain != null && ` · ${s.whoop.strain.toFixed(1)} strain`}
+                          {s.whoop?.avgHeartRate != null && ` · ${s.whoop.avgHeartRate} bpm avg`}
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">

@@ -3,7 +3,7 @@
  * session (rendered by /workout/[sessionId] and reached from /history).
  * Server component: receives pre-computed props from lib/queries/workout.
  */
-import { BarChart3, CheckCheck, Clock, Repeat2 } from "lucide-react";
+import { BarChart3, CheckCheck, Clock, HeartPulse, Repeat2 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import { SectionCard } from "@/components/ui/Card";
@@ -88,6 +88,24 @@ export default function SessionSummary({
           icon={Clock}
         />
       </div>
+
+      {summary.whoop && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-sm border border-border-faint bg-bg-subtle px-4 py-3">
+          <span className="flex items-center gap-2">
+            <HeartPulse className="size-4 text-text-3" strokeWidth={2} />
+            <Badge variant="neutral">WHOOP</Badge>
+            <span className="text-xs font-medium text-text-2">{summary.whoop.sportName}</span>
+          </span>
+          <span className="text-xs tabular-nums text-text-3">
+            {summary.whoop.strain != null && `${summary.whoop.strain.toFixed(1)} strain`}
+            {summary.whoop.avgHeartRate != null && ` · ${summary.whoop.avgHeartRate} bpm avg`}
+            {summary.whoop.maxHeartRate != null && ` · ${summary.whoop.maxHeartRate} bpm max`}
+            {summary.whoop.calories != null &&
+              ` · ${summary.whoop.calories.toLocaleString("en-US")} kcal`}
+            {` · ${summary.whoop.durationMin} min recorded`}
+          </span>
+        </div>
+      )}
 
       <SectionCard title="Exercises" flush>
         <div className="overflow-x-auto">

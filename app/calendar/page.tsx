@@ -126,7 +126,9 @@ export default async function CalendarPage({
 
                 {detail.session && (
                   <div className="rounded-sm border border-border-faint bg-bg-subtle p-3">
-                    <div className="grid grid-cols-3 gap-2 text-center">
+                    <div
+                      className={`grid gap-2 text-center ${detail.session.whoopStrain != null ? "grid-cols-4" : "grid-cols-3"}`}
+                    >
                       <div>
                         <p className="font-display text-lg font-semibold tabular-nums text-text">
                           {detail.session.setsLogged}
@@ -147,9 +149,17 @@ export default async function CalendarPage({
                         </p>
                         <p className="text-[10px] uppercase tracking-wider text-text-3">PRs</p>
                       </div>
+                      {detail.session.whoopStrain != null && (
+                        <div>
+                          <p className="font-display text-lg font-semibold tabular-nums text-text">
+                            {detail.session.whoopStrain.toFixed(1)}
+                          </p>
+                          <p className="text-[10px] uppercase tracking-wider text-text-3">Strain</p>
+                        </div>
+                      )}
                     </div>
                     <Link
-                      href={`/history/${detail.session.id}`}
+                      href={`/workout/${detail.session.id}`}
                       className="mt-3 block text-center text-xs font-medium text-text-3 hover:text-accent transition-colors"
                     >
                       View session log →
