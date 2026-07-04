@@ -11,7 +11,7 @@ import { addDays, fmtDisplay, type LocalDate } from "@/lib/dates";
 import { recoveryBand, type RecoveryBand } from "@/lib/recovery";
 import { isDeloadWeek, weekInCycle } from "@/lib/schedule";
 import { getWhoopDayContext } from "@/lib/queries/effective-recovery";
-import { callMiniMax, type CoachBriefData } from "./dashboard-coach";
+import { callMiniMax, clip, type CoachBriefData } from "./dashboard-coach";
 
 const DAILY_BRIEF_SYSTEM_PROMPT =
   "You are a direct, observant hypertrophy coach greeting an athlete at the start of their day. Using only the supplied facts: acknowledge yesterday (workout recap or rest), read today's WHOOP recovery and sleep conservatively (recovery below 40 or heavy sleep debt means advise backing off intensity today; 40-69 means manage load; 70+ is a green light), and tell them what's on tap today (the named workout, or rest). Close with genuine motivation — a short apt quote is welcome when recovery is decent, never when advising rest. No hype, no invented data, no medical advice. Return only JSON: {\"headline\":string,\"message\":string,\"encouragement\":string}. Keep the visible response under 80 words.";
@@ -101,9 +101,9 @@ export function composeDailyBrief(inputs: DailyBriefInputs): CoachBriefData {
       : pickQuote(inputs.dayKey);
 
   return {
-    headline: headline.slice(0, 100),
-    message: parts.join(" ").slice(0, 320),
-    encouragement: encouragement.slice(0, 180),
+    headline: clip(headline, 100),
+    message: clip(parts.join(" "), 600),
+    encouragement: clip(encouragement, 220),
     source: "deterministic",
   };
 }

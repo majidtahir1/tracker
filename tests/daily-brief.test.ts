@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { composeDailyBrief, pickQuote, type DailyBriefInputs } from "../lib/ai/daily-brief";
+import { clip } from "../lib/ai/dashboard-coach";
 
 const base: DailyBriefInputs = {
   date: "2026-07-04",
@@ -55,4 +56,22 @@ test("in-progress session: nudges to finish", () => {
 test("pickQuote is deterministic per day key", () => {
   assert.equal(pickQuote("2026-07-04"), pickQuote("2026-07-04"));
   assert.equal(typeof pickQuote("x"), "string");
+});
+
+test("clip keeps short text verbatim", () => {
+  assert.equal(clip("Short and sweet.", 100), "Short and sweet.");
+});
+
+test("clip cuts at the last full sentence, never mid-sentence", () => {
+  const text = "First sentence here. Second sentence follows. Third one gets cut somewhere in the middle of it";
+  const clipped = clip(text, 60);
+  assert.equal(clipped, "First sentence here. Second sentence follows.");
+});
+
+test("clip falls back to a word boundary with ellipsis when no sentence fits", () => {
+  const text = "one enormous unbroken clause that keeps going and going without any punctuation at all";
+  const clipped = clip(text, 40);
+  assert.ok(clipped.length <= 41);
+  assert.match(clipped, /…$/);
+  assert.ok(!/\s…$/.test(clipped));
 });

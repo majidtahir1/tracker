@@ -10,13 +10,28 @@ export interface CoachBriefData {
   source: "minimax" | "deterministic";
 }
 
+/** Length cap that never cuts mid-sentence: prefers the last full sentence, else word boundary + ellipsis. */
+export function clip(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  const lastSentenceEnd = Math.max(
+    cut.lastIndexOf(". "),
+    cut.lastIndexOf("! "),
+    cut.lastIndexOf("? "),
+    cut.endsWith(".") || cut.endsWith("!") || cut.endsWith("?") ? cut.length - 1 : -1,
+  );
+  if (lastSentenceEnd > max * 0.5) return cut.slice(0, lastSentenceEnd + 1);
+  const lastSpace = cut.lastIndexOf(" ");
+  return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut) + "…";
+}
+
 export function parseBrief(content: string): CoachBriefData | null {
   try {
     const match = content.match(/\{[\s\S]*\}/);
     if (!match) return null;
     const value = JSON.parse(match[0]) as Record<string, unknown>;
     if (!["headline", "message", "encouragement"].every((k) => typeof value[k] === "string")) return null;
-    return { headline: String(value.headline).slice(0, 100), message: String(value.message).slice(0, 320), encouragement: String(value.encouragement).slice(0, 180), source: "minimax" };
+    return { headline: clip(String(value.headline), 100), message: clip(String(value.message), 600), encouragement: clip(String(value.encouragement), 220), source: "minimax" };
   } catch { return null; }
 }
 
