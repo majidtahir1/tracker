@@ -197,29 +197,11 @@ const BLOCK3_ADD_SET: Array<[number, string]> = [
 
 // ---------- Local-date helpers (mirror lib/dates.ts; seed stays standalone) ----------
 
-function fmtLocal(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function isoWeekMondayOfToday(): string {
-  const now = new Date();
-  const dow = now.getDay() === 0 ? 7 : now.getDay(); // ISO 1..7
-  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (dow - 1));
-  return fmtLocal(monday);
-}
-
 // ---------- Main ----------
 
 async function main() {
-  // 1. AppSettings singleton
-  await prisma.appSettings.upsert({
-    where: { id: "singleton" },
-    update: {},
-    create: { id: "singleton" },
-  });
+  // Catalog-only seed: per-user rows (AppSettings, TrainingBlock) are created
+  // by signup provisioning (lib/provision.ts), never seeded.
 
   // 2. Exercises
   const exerciseIdByName = new Map<string, string>();
@@ -255,10 +237,9 @@ async function main() {
   // 5. Program + ordered templates + slots
   const program = await prisma.program.upsert({
     where: { name: "UPPER / LOWER" },
-    update: { description: "Four-day upper/lower hypertrophy program", isActive: true },
-    create: { name: "UPPER / LOWER", description: "Four-day upper/lower hypertrophy program", isActive: true },
+    update: { description: "Four-day upper/lower hypertrophy program" },
+    create: { name: "UPPER / LOWER", description: "Four-day upper/lower hypertrophy program" },
   });
-  await prisma.program.updateMany({ where: { id: { not: program.id } }, data: { isActive: false } });
   // Remove only unattached legacy templates that have no workout history.
   await prisma.workoutTemplate.deleteMany({
     where: { programId: null, sessions: { none: {} } },
@@ -315,25 +296,13 @@ async function main() {
     }
   }
 
-  // 7. TrainingBlock 1 — starts Monday of the current week
-  const startDate = isoWeekMondayOfToday();
-  const existingBlock = await prisma.trainingBlock.findFirst({
-    where: { userId: null, cycleNumber: 1 },
-  });
-  if (existingBlock) {
-    await prisma.trainingBlock.update({ where: { id: existingBlock.id }, data: { startDate } });
-  } else {
-    await prisma.trainingBlock.create({ data: { cycleNumber: 1, startDate } });
-  }
-
   // ---- Verification summary ----
-  const [exercises, alternatives, templates, slots, overrides, blocks] = await Promise.all([
+  const [exercises, alternatives, templates, slots, overrides] = await Promise.all([
     prisma.exercise.count(),
     prisma.exerciseAlternative.count(),
     prisma.workoutTemplate.count(),
     prisma.templateExercise.count(),
     prisma.blockOverride.count(),
-    prisma.trainingBlock.findMany(),
   ]);
   console.log("Seed complete:");
   console.log(`  exercises:            ${exercises}`);
@@ -341,7 +310,6 @@ async function main() {
   console.log(`  workout templates:    ${templates}`);
   console.log(`  template slots:       ${slots}`);
   console.log(`  block overrides:      ${overrides}`);
-  console.log(`  training blocks:      ${blocks.length} (cycle ${blocks[0]?.cycleNumber}, starts ${blocks[0]?.startDate})`);
 }
 
 main()
