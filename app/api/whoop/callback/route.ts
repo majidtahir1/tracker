@@ -65,9 +65,7 @@ export async function GET(request: Request) {
     };
     await prisma.whoopConnection.upsert({
       where: { userId },
-      // Explicit id: the schema still defaults the id to a fixed singleton
-      // value until the next schema phase, which would collide across users.
-      create: { id: crypto.randomUUID(), userId, ...data },
+      create: { userId, ...data },
       update: data,
     });
   } catch {

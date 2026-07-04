@@ -23,10 +23,7 @@ export async function provisionNewUser(userId: string): Promise<void> {
     prisma.appSettings.upsert({
       where: { userId },
       update: {},
-      // Explicit id: the schema default is still "singleton" until Task 11's
-      // phase-2 migration switches it to cuid(); without this the SECOND user's
-      // create would collide with the owner's row.
-      create: { id: crypto.randomUUID(), userId, activeProgramId: firstProgram?.id ?? null },
+      create: { userId, activeProgramId: firstProgram?.id ?? null },
     }),
     prisma.trainingBlock.upsert({
       where: { userId_cycleNumber: { userId, cycleNumber: 1 } },
