@@ -9,6 +9,7 @@
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "db:migrate-users": "tsx prisma/migrate-multi-user.ts",
     "test": "TZ=America/New_York tsx --test tests/*.test.ts"
   },
   "dependencies": {
