@@ -17,7 +17,11 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (user) => {
-          await provisionNewUser(user.id);
+          try {
+            await provisionNewUser(user.id);
+          } catch (err) {
+            console.error("provisioning failed for user", user.id, err);
+          }
         },
       },
     },

@@ -19,17 +19,19 @@ export function mondayOfCurrentWeek(now: Date): string {
 
 export async function provisionNewUser(userId: string): Promise<void> {
   const firstProgram = await prisma.program.findFirst({ orderBy: { createdAt: "asc" } });
-  await prisma.appSettings.upsert({
-    where: { userId },
-    update: {},
-    // Explicit id: the schema default is still "singleton" until Task 11's
-    // phase-2 migration switches it to cuid(); without this the SECOND user's
-    // create would collide with the owner's row.
-    create: { id: crypto.randomUUID(), userId, activeProgramId: firstProgram?.id ?? null },
-  });
-  await prisma.trainingBlock.upsert({
-    where: { userId_cycleNumber: { userId, cycleNumber: 1 } },
-    update: {},
-    create: { userId, cycleNumber: 1, startDate: mondayOfCurrentWeek(new Date()) },
-  });
+  await prisma.$transaction([
+    prisma.appSettings.upsert({
+      where: { userId },
+      update: {},
+      // Explicit id: the schema default is still "singleton" until Task 11's
+      // phase-2 migration switches it to cuid(); without this the SECOND user's
+      // create would collide with the owner's row.
+      create: { id: crypto.randomUUID(), userId, activeProgramId: firstProgram?.id ?? null },
+    }),
+    prisma.trainingBlock.upsert({
+      where: { userId_cycleNumber: { userId, cycleNumber: 1 } },
+      update: {},
+      create: { userId, cycleNumber: 1, startDate: mondayOfCurrentWeek(new Date()) },
+    }),
+  ]);
 }
