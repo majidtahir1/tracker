@@ -320,7 +320,12 @@ export interface RecoveryTrendPoint {
   source: RecoverySource | null;
 }
 
-/** Today's WHOOP snapshot for the recovery page (null when nothing synced today). */
+/**
+ * Latest WHOOP snapshot for the recovery page (null when nothing synced).
+ * Keyed to the CURRENT cycle (latest by start), not a local-date match —
+ * cycle boundaries near midnight land on "yesterday" in some machine
+ * timezones, which made date-based lookups miss today's scores.
+ */
 export interface WhoopTodaySnapshot {
   score: number | null;
   hrvMs: number | null;
@@ -360,7 +365,7 @@ export interface RecoveryData {
 export async function getRecoveryData(today: LocalDate): Promise<RecoveryData> {
   const userId = await requireUserId();
   const windowStart = addDays(today, -13);
-  const [logs, whoopWindow, whoopTodayRow, sleepToday, cycleToday, totalLogged, latest] =
+  const [logs, whoopWindow, currentWhoop, sleepToday, totalLogged, latest] =
     await Promise.all([
       prisma.recoveryLog.findMany({
         where: { userId, date: { gte: windowStart, lte: today } },
@@ -376,9 +381,27 @@ export async function getRecoveryData(today: LocalDate): Promise<RecoveryData> {
         },
         select: { date: true, recoveryScore: true },
       }),
-      prisma.whoopRecovery.findFirst({ where: { userId, date: today } }),
+      // Current cycle + its recovery; when the current cycle isn't scored yet
+      // (early morning), fall back to the previous cycle's recovery.
+      (async () => {
+        const cycles = await prisma.whoopCycle.findMany({
+          where: { userId },
+          orderBy: { start: "desc" },
+          take: 2,
+        });
+        const current = cycles[0] ?? null;
+        if (!current) return { cycle: null, recovery: null };
+        const recoveries = await prisma.whoopRecovery.findMany({
+          where: { userId, cycleId: { in: cycles.map((c) => c.id) } },
+        });
+        const byCycle = new Map(recoveries.map((r) => [r.cycleId, r]));
+        const recovery =
+          cycles.map((c) => byCycle.get(c.id)).find((r) => r?.recoveryScore != null) ??
+          byCycle.get(current.id) ??
+          null;
+        return { cycle: current, recovery };
+      })(),
       prisma.whoopSleep.findFirst({ where: { userId, date: today, isNap: false }, orderBy: { end: "desc" } }),
-      prisma.whoopCycle.findFirst({ where: { userId, date: today }, orderBy: { start: "desc" } }),
       prisma.recoveryLog.count({ where: { userId } }),
       getLatestEffectiveRecovery(userId, today),
     ]);
@@ -394,23 +417,26 @@ export async function getRecoveryData(today: LocalDate): Promise<RecoveryData> {
     else trend.push({ date, score: manualScore, source: manualScore != null ? "manual" : null });
   }
 
+  const { cycle: currentCycle, recovery: latestRecovery } = currentWhoop;
   const whoopToday: WhoopTodaySnapshot | null =
-    whoopTodayRow || sleepToday || cycleToday
+    latestRecovery || sleepToday || currentCycle
       ? {
-          score: whoopTodayRow?.recoveryScore ?? null,
+          score: latestRecovery?.recoveryScore ?? null,
           hrvMs:
-            whoopTodayRow?.hrvRmssdMilli != null
-              ? Math.round(whoopTodayRow.hrvRmssdMilli * 10) / 10
+            latestRecovery?.hrvRmssdMilli != null
+              ? Math.round(latestRecovery.hrvRmssdMilli * 10) / 10
               : null,
           restingHr:
-            whoopTodayRow?.restingHeartRate != null
-              ? Math.round(whoopTodayRow.restingHeartRate)
+            latestRecovery?.restingHeartRate != null
+              ? Math.round(latestRecovery.restingHeartRate)
               : null,
-          calibrating: whoopTodayRow?.userCalibrating ?? false,
+          calibrating: latestRecovery?.userCalibrating ?? false,
           sleepHours: sleepToday ? whoopSleepHours(sleepToday) : null,
           sleepPerformancePct:
             sleepToday?.performancePct != null ? Math.round(sleepToday.performancePct) : null,
-          dayStrain: cycleToday?.strain != null ? Math.round(cycleToday.strain * 10) / 10 : null,
+          // Strain only from the current cycle — a previous day's strain
+          // shown as "day strain" would be misleading.
+          dayStrain: currentCycle?.strain != null ? Math.round(currentCycle.strain * 10) / 10 : null,
         }
       : null;
 
