@@ -20,6 +20,22 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Accounts
+
+The tracker is multi-user. Sign in with a username and password at `/login`;
+anyone with the URL can create an account at `/signup` (intended for a small
+trusted group — there is no email verification or password reset).
+
+- Each account gets its own settings, training block, workout history,
+  measurements, photos, nutrition/recovery logs, goals, notifications, and
+  WHOOP connection. The exercise catalog and programs are shared.
+- Set `BETTER_AUTH_SECRET` (32+ chars) and `BETTER_AUTH_URL` in `.env`
+  (see `.env.example`).
+- Pre-multi-user databases were migrated to the owner account in July 2026
+  via a one-time script (`prisma/migrate-multi-user.ts`, since removed —
+  see git history). Fresh installs need no migration: run `npm run db:seed`
+  for the catalog and sign up.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
