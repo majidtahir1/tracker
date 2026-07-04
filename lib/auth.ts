@@ -7,9 +7,19 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { username } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
 import { prisma } from "@/lib/db";
+import { provisionNewUser } from "@/lib/provision";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "sqlite" }),
   emailAndPassword: { enabled: true },
   plugins: [username(), nextCookies()], // nextCookies must be last
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          await provisionNewUser(user.id);
+        },
+      },
+    },
+  },
 });
