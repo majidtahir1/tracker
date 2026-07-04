@@ -10,7 +10,7 @@ export interface CoachBriefData {
   source: "minimax" | "deterministic";
 }
 
-function parseBrief(content: string): CoachBriefData | null {
+export function parseBrief(content: string): CoachBriefData | null {
   try {
     const match = content.match(/\{[\s\S]*\}/);
     if (!match) return null;
@@ -20,7 +20,13 @@ function parseBrief(content: string): CoachBriefData | null {
   } catch { return null; }
 }
 
-async function callMiniMax(context: unknown): Promise<CoachBriefData | null> {
+const POST_WORKOUT_SYSTEM_PROMPT = "You are a direct, observant hypertrophy coach. Review only the supplied completed-workout facts. Mention one specific positive, one useful observation, and the next focus. Be encouraging without hype or generic praise. If a \"whoop\" block is present, read it conservatively: low recovery (below 40), high sleep debt, or high yesterday strain (above 14) mean the next focus should lean toward maintaining rather than pushing load; never let WHOOP data override the logged workout facts. Never invent data or give medical advice. Return only JSON: {\"headline\":string,\"message\":string,\"encouragement\":string}. Keep the visible response under 70 words.";
+
+/** Shared MiniMax caller for coach briefs; null without an API key or on any failure. */
+export async function callMiniMax(
+  context: unknown,
+  systemPrompt: string = POST_WORKOUT_SYSTEM_PROMPT,
+): Promise<CoachBriefData | null> {
   const apiKey = process.env.MINIMAX_API_KEY;
   if (!apiKey) return null;
   const controller = new AbortController();
@@ -32,7 +38,7 @@ async function callMiniMax(context: unknown): Promise<CoachBriefData | null> {
       body: JSON.stringify({
         model: process.env.MINIMAX_MODEL ?? "MiniMax-M3",
         messages: [
-          { role: "system", name: "Coach", content: "You are a direct, observant hypertrophy coach. Review only the supplied completed-workout facts. Mention one specific positive, one useful observation, and the next focus. Be encouraging without hype or generic praise. If a \"whoop\" block is present, read it conservatively: low recovery (below 40), high sleep debt, or high yesterday strain (above 14) mean the next focus should lean toward maintaining rather than pushing load; never let WHOOP data override the logged workout facts. Never invent data or give medical advice. Return only JSON: {\"headline\":string,\"message\":string,\"encouragement\":string}. Keep the visible response under 70 words." },
+          { role: "system", name: "Coach", content: systemPrompt },
           { role: "user", name: "athlete", content: JSON.stringify(context) },
         ],
         max_completion_tokens: 1200, temperature: 1, top_p: 0.95,

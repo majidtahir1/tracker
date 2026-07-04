@@ -459,6 +459,22 @@ model CoachBrief {
   @@index([userId])
 }
 
+// One cached AI morning brief per physiological day (current WHOOP cycle,
+// calendar-day fallback). Deterministic briefs are recomputed, never cached.
+model DailyBrief {
+  id            String   @id @default(cuid())
+  userId        String
+  dayKey        String // "cycle:<whoopCycleId>" or "YYYY-MM-DD"
+  headline      String
+  message       String
+  encouragement String
+  source        String
+  createdAt     DateTime @default(now())
+  user          User     @relation("DailyBriefUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dayKey])
+}
+
 // ---------- WHOOP integration ----------
 // Typed mirrors of the WHOOP API v2 domains, keyed by WHOOP's own ids for
 // idempotent upserts. `date` is the local YYYY-MM-DD day the record belongs
@@ -619,6 +635,7 @@ model User {
   goals              Goal[]              @relation("GoalUser")
   notifications      Notification[]      @relation("NotificationUser")
   coachBriefs        CoachBrief[]        @relation("CoachBriefUser")
+  dailyBriefs        DailyBrief[]        @relation("DailyBriefUser")
   substitutionEvents SubstitutionEvent[] @relation("SubstitutionEventUser")
   whoopCycles        WhoopCycle[]        @relation("WhoopCycleUser")
   whoopRecoveries    WhoopRecovery[]     @relation("WhoopRecoveryUser")

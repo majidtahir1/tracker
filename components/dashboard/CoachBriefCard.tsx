@@ -16,7 +16,7 @@ export default function CoachBriefCard() {
       <span className="grid size-9 shrink-0 place-items-center rounded-full bg-accent text-accent-text"><Sparkles className="size-4" strokeWidth={2}/></span>
       <div>
         <p className="text-xs font-semibold uppercase tracking-wider text-accent">Coach brief</p>
-        {!loaded ? <p className="mt-2 text-sm text-text-3">Reviewing your last workout…</p> : <><h2 className="mt-1 text-lg font-semibold text-text">{brief?.headline}</h2><p className="mt-2 text-sm leading-relaxed text-text-2">{brief?.message}</p><p className="mt-2 text-sm font-medium text-text">{brief?.encouragement}</p>{brief?.source === "deterministic" && <p className="mt-2 text-[11px] text-text-faint">Local coaching fallback</p>}</>}
+        {!loaded ? <p className="mt-2 text-sm text-text-3">Checking in…</p> : <><h2 className="mt-1 text-lg font-semibold text-text">{brief?.headline}</h2><p className="mt-2 text-sm leading-relaxed text-text-2">{brief?.message}</p><p className="mt-2 text-sm font-medium text-text">{brief?.encouragement}</p>{brief?.source === "deterministic" && <p className="mt-2 text-[11px] text-text-faint">Local coaching fallback</p>}</>}
       </div>
     </div>
   </Card>;
