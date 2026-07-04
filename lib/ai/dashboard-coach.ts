@@ -47,7 +47,7 @@ async function callMiniMax(context: unknown): Promise<CoachBriefData | null> {
 export async function buildLatestCoachBrief(): Promise<{ sessionId: string; brief: CoachBriefData } | null> {
   const userId = await requireUserId();
   const session = await prisma.workoutSession.findFirst({
-    where: { status: "COMPLETED" }, orderBy: [{ date: "desc" }, { completedAt: "desc" }],
+    where: { userId, status: "COMPLETED" }, orderBy: [{ date: "desc" }, { completedAt: "desc" }],
     include: { template: true, exercises: { orderBy: { sortOrder: "asc" }, include: { exercise: true, sets: { where: { completed: true } } } } },
   });
   if (!session) return null;
@@ -55,8 +55,8 @@ export async function buildLatestCoachBrief(): Promise<{ sessionId: string; brie
   if (cached) return { sessionId: session.id, brief: { headline: cached.headline, message: cached.message, encouragement: cached.encouragement, source: cached.source === "minimax" ? "minimax" : "deterministic" } };
   const setCount = session.exercises.reduce((n, ex) => n + ex.sets.length, 0);
   const [prExercises, priorWorkoutCount, whoopDay] = await Promise.all([
-    prisma.personalRecord.findMany({ where: { date: session.date }, distinct: ["exerciseId"], select: { exerciseId: true } }),
-    prisma.workoutSession.count({ where: { status: "COMPLETED", date: { lt: session.date } } }),
+    prisma.personalRecord.findMany({ where: { userId, date: session.date }, distinct: ["exerciseId"], select: { exerciseId: true } }),
+    prisma.workoutSession.count({ where: { userId, status: "COMPLETED", date: { lt: session.date } } }),
     getWhoopDayContext(userId, localToday()),
   ]);
   const whoop = toCoachWhoopContext(whoopDay);
@@ -72,6 +72,6 @@ export async function buildLatestCoachBrief(): Promise<{ sessionId: string; brie
     message: `You logged ${setCount} working sets and ${Math.round(session.totalVolume).toLocaleString("en-US")} lb of volume${priorWorkoutCount === 0 ? `, establishing baselines across ${session.exercises.length} exercises` : prExercises.length > 0 ? ` with new records across ${prExercises.length} exercise${prExercises.length === 1 ? "" : "s"}` : ""}. Review the hardest sets honestly and carry that information into the next session.`,
     encouragement: "The work is recorded. Recover well, then build on it.", source: "deterministic",
   };
-  if (generated) await prisma.coachBrief.create({ data: { sessionId: session.id, ...generated } });
+  if (generated) await prisma.coachBrief.create({ data: { userId, sessionId: session.id, ...generated } });
   return { sessionId: session.id, brief };
 }

@@ -1,7 +1,7 @@
 /**
  * POST /api/photos — multipart progress-photo upload (the single non-server-
  * action mutation, per ARCHITECTURE.md). Streams files to public/photos/ and
- * upserts ProgressPhoto rows (one per angle; @@unique([date, angle])).
+ * upserts ProgressPhoto rows (one per angle; @@unique([userId, date, angle])).
  *
  * Form fields: date (YYYY-MM-DD, required), weight?, bodyFat?, notes?,
  * and up to three files under keys "front" | "side" | "back".
@@ -12,6 +12,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -39,6 +40,12 @@ function optionalNumber(raw: FormDataEntryValue | null): number | null | undefin
 }
 
 export async function POST(request: Request) {
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
+
   let form: FormData;
   try {
     form = await request.formData();
@@ -89,21 +96,16 @@ export async function POST(request: Request) {
     const filePath = `/photos/${name}`;
     await writeFile(path.join(photosDir, name), Buffer.from(await file.arrayBuffer()));
 
-    // Replacing the same date+angle: keep the unique row, remove the old file.
-    // (SQLite unique indexes treat every NULL userId as distinct, so we can't
-    // rely on the compound unique key while userId is unset — findFirst instead.)
-    const existing = await prisma.progressPhoto.findFirst({
-      where: { userId: null, date, angle },
+    // Replacing the same user+date+angle: keep the unique row, remove the old file.
+    const existing = await prisma.progressPhoto.findUnique({
+      where: { userId_date_angle: { userId, date, angle } },
     });
 
-    const row = existing
-      ? await prisma.progressPhoto.update({
-          where: { id: existing.id },
-          data: { filePath, weight, bodyFat, notes },
-        })
-      : await prisma.progressPhoto.create({
-          data: { date, angle, filePath, weight, bodyFat, notes },
-        });
+    const row = await prisma.progressPhoto.upsert({
+      where: { userId_date_angle: { userId, date, angle } },
+      update: { filePath, weight, bodyFat, notes },
+      create: { userId, date, angle, filePath, weight, bodyFat, notes },
+    });
 
     if (existing && existing.filePath !== filePath) {
       const old = path.resolve(path.join(process.cwd(), "public", existing.filePath));

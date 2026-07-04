@@ -22,7 +22,7 @@ export async function askSetCoach(sessionExerciseId: string): Promise<SetCoachRe
       sets: { where: { completed: true }, orderBy: { setNumber: "asc" } },
     },
   });
-  if (!se) return { ok: false, error: "Exercise was not found." };
+  if (!se || se.session.userId !== userId) return { ok: false, error: "Exercise was not found." };
   if (se.session.status !== "IN_PROGRESS") return { ok: false, error: "Coaching is available during an active workout." };
   const lastSet = se.sets.at(-1);
   if (!lastSet) return { ok: false, error: "Complete a set before asking the coach." };
@@ -31,7 +31,7 @@ export async function askSetCoach(sessionExerciseId: string): Promise<SetCoachRe
     getLatestEffectiveRecovery(userId, localToday()),
     getWhoopDayContext(userId, localToday()),
     prisma.sessionExercise.findMany({
-      where: { templateExerciseId: se.templateExerciseId, session: { status: "COMPLETED", isDeload: false, date: { lt: se.session.date } } },
+      where: { templateExerciseId: se.templateExerciseId, session: { userId, status: "COMPLETED", isDeload: false, date: { lt: se.session.date } } },
       orderBy: { session: { date: "desc" } }, take: 2,
       select: { session: { select: { date: true } }, sets: { where: { completed: true }, orderBy: { setNumber: "asc" }, select: { setNumber: true, weight: true, reps: true, rir: true } } },
     }),
