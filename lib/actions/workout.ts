@@ -42,6 +42,7 @@ function revalidateWorkoutPaths(sessionId?: string) {
 // ---------------------------------------------------------------------------
 
 export async function startWorkout(formData: FormData): Promise<void> {
+  const userId = await requireUserId();
   const templateId = String(formData.get("templateId") ?? "");
   const date = String(formData.get("date") ?? localToday());
   const scheduleOverride = formData.get("scheduleOverride") === "today";
@@ -49,7 +50,7 @@ export async function startWorkout(formData: FormData): Promise<void> {
 
   // Resume: an existing session for this template+date just flips to IN_PROGRESS.
   const existing = await prisma.workoutSession.findFirst({
-    where: { userId: null, templateId, date },
+    where: { userId, templateId, date },
     include: { exercises: true },
   });
   if (existing) {
@@ -67,11 +68,11 @@ export async function startWorkout(formData: FormData): Promise<void> {
   let block = await getLatestBlock();
   if (!block) {
     block = await prisma.trainingBlock.create({
-      data: { cycleNumber: 1, startDate: isoWeekMonday(date) },
+      data: { userId, cycleNumber: 1, startDate: isoWeekMonday(date) },
     });
   } else if (isCycleComplete(block, date)) {
     block = await prisma.trainingBlock.create({
-      data: { cycleNumber: block.cycleNumber + 1, startDate: isoWeekMonday(date) },
+      data: { userId, cycleNumber: block.cycleNumber + 1, startDate: isoWeekMonday(date) },
     });
   }
 
@@ -90,7 +91,7 @@ export async function startWorkout(formData: FormData): Promise<void> {
 
   // A single-user logger should never fork two simultaneous workouts.
   const activeSession = await prisma.workoutSession.findFirst({
-    where: { status: "IN_PROGRESS" },
+    where: { userId, status: "IN_PROGRESS" },
     select: { id: true },
   });
   if (activeSession) redirect(`/workout/${activeSession.id}`);
@@ -138,6 +139,7 @@ export async function startWorkout(formData: FormData): Promise<void> {
 
   const session = await prisma.workoutSession.create({
     data: {
+      userId,
       templateId,
       blockId: block.id,
       date,
@@ -199,7 +201,7 @@ export async function logSet(input: LogSetInput): Promise<LogSetResult> {
     where: { id: sessionExerciseId },
     include: { session: true, exercise: true },
   });
-  if (!se) return { ok: false, prs: [], error: "Exercise not found" };
+  if (!se || se.session.userId !== userId) return { ok: false, prs: [], error: "Exercise not found" };
 
   const setLog = await prisma.setLog.upsert({
     where: { sessionExerciseId_setNumber: { sessionExerciseId, setNumber } },
@@ -229,7 +231,7 @@ export async function logSet(input: LogSetInput): Promise<LogSetResult> {
 
   const fired: FiredPr[] = [];
   if (input.completed && !se.session.isDeload) {
-    const bests = await currentBests(se.templateExerciseId);
+    const bests = await currentBests(userId, se.templateExerciseId);
     const detected = detectSetPRs(
       { weight, reps, completed: true },
       bests,
@@ -244,22 +246,22 @@ export async function logSet(input: LogSetInput): Promise<LogSetResult> {
   return { ok: true, setId: setLog.id, prs: fired };
 }
 
-async function currentBests(templateExerciseId: string): Promise<CurrentBests> {
+async function currentBests(userId: string, templateExerciseId: string): Promise<CurrentBests> {
   const [heaviest, e1rm, reps, volume] = await Promise.all([
     prisma.personalRecord.findFirst({
-      where: { templateExerciseId, type: "HEAVIEST_WEIGHT" },
+      where: { userId, templateExerciseId, type: "HEAVIEST_WEIGHT" },
       orderBy: { value: "desc" },
     }),
     prisma.personalRecord.findFirst({
-      where: { templateExerciseId, type: "BEST_E1RM" },
+      where: { userId, templateExerciseId, type: "BEST_E1RM" },
       orderBy: { value: "desc" },
     }),
     prisma.personalRecord.findFirst({
-      where: { templateExerciseId, type: "MOST_REPS" },
+      where: { userId, templateExerciseId, type: "MOST_REPS" },
       orderBy: { value: "desc" },
     }),
     prisma.personalRecord.findFirst({
-      where: { templateExerciseId, type: "MOST_SESSION_VOLUME" },
+      where: { userId, templateExerciseId, type: "MOST_SESSION_VOLUME" },
       orderBy: { value: "desc" },
     }),
   ]);
@@ -287,7 +289,7 @@ async function persistPr(
 ): Promise<FiredPr> {
   // Re-saving the same set updates its existing PR row instead of duplicating.
   const existing = setLogId
-    ? await prisma.personalRecord.findFirst({ where: { setLogId, type: pr.type } })
+    ? await prisma.personalRecord.findFirst({ where: { userId, setLogId, type: pr.type } })
     : null;
   const row = existing
     ? await prisma.personalRecord.update({
@@ -296,6 +298,7 @@ async function persistPr(
       })
     : await prisma.personalRecord.create({
         data: {
+          userId,
           exerciseId,
           templateExerciseId,
           type: pr.type,
@@ -353,7 +356,7 @@ export async function finishWorkout(sessionId: string): Promise<FinishResult> {
     where: { id: sessionId },
     include: { exercises: { include: { exercise: true, sets: true } } },
   });
-  if (!session) return { ok: false, prs: [], error: "Session not found" };
+  if (!session || session.userId !== userId) return { ok: false, prs: [], error: "Session not found" };
 
   let totalVolume = 0;
   const fired: FiredPr[] = [];
@@ -364,7 +367,7 @@ export async function finishWorkout(sessionId: string): Promise<FinishResult> {
     totalVolume += exVolume;
 
     if (!session.isDeload && exVolume > 0) {
-      const bests = await currentBests(ex.templateExerciseId);
+      const bests = await currentBests(userId, ex.templateExerciseId);
       const pr = detectSessionVolumePR(exVolume, bests, session.isDeload);
       if (pr) {
         fired.push(
@@ -397,6 +400,7 @@ export async function substituteExercise(input: {
   newExerciseId: string;
   reason?: string;
 }): Promise<{ ok: boolean; error?: string }> {
+  const userId = await requireUserId();
   const { sessionExerciseId, newExerciseId } = input;
   if (!sessionExerciseId || !newExerciseId) return { ok: false, error: "Invalid substitution" };
 
@@ -404,7 +408,7 @@ export async function substituteExercise(input: {
     where: { id: sessionExerciseId },
     include: { session: true },
   });
-  if (!se) return { ok: false, error: "Exercise not found" };
+  if (!se || se.session.userId !== userId) return { ok: false, error: "Exercise not found" };
   if (se.exerciseId === newExerciseId) return { ok: true };
 
   const newExercise = await prisma.exercise.findUnique({ where: { id: newExerciseId } });
@@ -422,6 +426,7 @@ export async function substituteExercise(input: {
     }),
     prisma.substitutionEvent.create({
       data: {
+        userId,
         templateExerciseId: se.templateExerciseId,
         oldExerciseId: se.exerciseId,
         newExerciseId,
@@ -443,8 +448,12 @@ export async function updateExerciseNotes(
   sessionExerciseId: string,
   notes: string
 ): Promise<{ ok: boolean }> {
-  const se = await prisma.sessionExercise.findUnique({ where: { id: sessionExerciseId } });
-  if (!se) return { ok: false };
+  const userId = await requireUserId();
+  const se = await prisma.sessionExercise.findUnique({
+    where: { id: sessionExerciseId },
+    include: { session: { select: { userId: true } } },
+  });
+  if (!se || se.session.userId !== userId) return { ok: false };
   await prisma.sessionExercise.update({
     where: { id: sessionExerciseId },
     data: { notes: notes.slice(0, 1000) || null },
@@ -455,9 +464,10 @@ export async function updateExerciseNotes(
 
 /** Cancel an in-progress session: deletes it (sets cascade). */
 export async function cancelWorkout(sessionId: string): Promise<void> {
+  const userId = await requireUserId();
   const session = await prisma.workoutSession.findUnique({ where: { id: sessionId } });
-  if (session && session.status !== "COMPLETED") {
-    await prisma.workoutSession.delete({ where: { id: sessionId } });
+  if (session && session.userId === userId && session.status !== "COMPLETED") {
+    await prisma.workoutSession.deleteMany({ where: { id: sessionId, userId } });
   }
   revalidateWorkoutPaths();
   redirect("/workout");

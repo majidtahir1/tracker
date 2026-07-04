@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
+import { requireUserId } from "@/lib/session";
 
 function refresh() {
   revalidatePath("/programs");
@@ -10,6 +11,7 @@ function refresh() {
 }
 
 export async function createProgram(formData: FormData) {
+  await requireUserId();
   const name = String(formData.get("name") ?? "").trim();
   if (name.length < 2 || name.length > 80) throw new Error("Program name must be 2–80 characters");
   await prisma.program.create({ data: { name, description: String(formData.get("description") ?? "").trim() || null } });
@@ -17,16 +19,15 @@ export async function createProgram(formData: FormData) {
 }
 
 export async function activateProgram(formData: FormData) {
+  const userId = await requireUserId();
   const id = String(formData.get("programId") ?? "");
   if (!id) throw new Error("Program is required");
-  await prisma.$transaction([
-    prisma.program.updateMany({ data: { isActive: false } }),
-    prisma.program.update({ where: { id }, data: { isActive: true } }),
-  ]);
+  await prisma.appSettings.update({ where: { userId }, data: { activeProgramId: id } });
   refresh();
 }
 
 export async function addWorkout(formData: FormData) {
+  await requireUserId();
   const programId = String(formData.get("programId") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const count = await prisma.workoutTemplate.count({ where: { programId } });
@@ -36,6 +37,7 @@ export async function addWorkout(formData: FormData) {
 }
 
 export async function updateWorkout(formData: FormData) {
+  await requireUserId();
   const id = String(formData.get("workoutId") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   if (!id || name.length < 2) throw new Error("Workout name is required");
@@ -44,6 +46,7 @@ export async function updateWorkout(formData: FormData) {
 }
 
 export async function updateProgramExercise(formData: FormData) {
+  await requireUserId();
   const id = String(formData.get("slotId") ?? "");
   const baseSets = Number(formData.get("sets"));
   const repRangeMin = Number(formData.get("repMin"));
@@ -56,6 +59,7 @@ export async function updateProgramExercise(formData: FormData) {
 }
 
 export async function updateWorkoutDetails(formData: FormData) {
+  await requireUserId();
   const workoutId = String(formData.get("workoutId") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const slotIds = formData.getAll("slotId").map(String);
@@ -78,6 +82,7 @@ export async function updateWorkoutDetails(formData: FormData) {
 }
 
 export async function addProgramExercise(formData: FormData) {
+  await requireUserId();
   const workoutId = String(formData.get("workoutId") ?? "");
   const exerciseId = String(formData.get("exerciseId") ?? "");
   if (!workoutId || !exerciseId) throw new Error("Workout and exercise are required");
