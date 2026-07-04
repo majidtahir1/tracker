@@ -245,7 +245,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       orderBy: { date: "asc" },
     }),
     prisma.nutritionLog.findFirst({ where: { userId, date: today } }),
-    getLatestEffectiveRecovery(today),
+    getLatestEffectiveRecovery(userId, today),
     prisma.workoutSession.findMany({
       where: { userId, status: "COMPLETED" },
       orderBy: { date: "asc" },
@@ -352,7 +352,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       prisma.progressPhoto.count({ where: { userId, date: { startsWith: monthKey(today) } } }),
       prisma.bodyMeasurement.count({ where: { userId, date: { startsWith: monthKey(today) } } }),
     ]);
-    const candidates: NotificationCandidate[] = scheduleNotifications({
+    const candidates: NotificationCandidate[] = scheduleNotifications(userId, {
       today,
       blockId: block.id,
       weekInCycle: position.week,
@@ -365,7 +365,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     });
     for (const slot of increaseSlots) {
       candidates.push(
-        progressionNotification({
+        progressionNotification(userId, {
           templateExerciseId: slot.templateExerciseId,
           exerciseName: slot.exerciseName,
           newWeight: slot.newWeight,
@@ -374,8 +374,8 @@ export async function getDashboardData(): Promise<DashboardData> {
       );
     }
     for (const c of candidates) {
-      const existingNotification = await prisma.notification.findFirst({
-        where: { userId, dedupeKey: c.dedupeKey },
+      const existingNotification = await prisma.notification.findUnique({
+        where: { userId_dedupeKey: { userId, dedupeKey: c.dedupeKey } },
       });
       if (!existingNotification) {
         await prisma.notification.create({

@@ -53,9 +53,9 @@ export async function getDeloadPct(): Promise<number> {
 }
 
 export async function getLatestRecoveryScore(): Promise<number | null> {
-  await requireUserId();
+  const userId = await requireUserId();
   // Effective score: WHOOP when synced for the day, else the manual log.
-  const latest = await getLatestEffectiveRecovery(localToday());
+  const latest = await getLatestEffectiveRecovery(userId, localToday());
   return latest.score;
 }
 

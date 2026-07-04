@@ -4,6 +4,7 @@
  * (ARCHITECTURE.md schema note on Goal).
  */
 import { prisma } from "@/lib/db";
+import { requireUserId } from "@/lib/session";
 import { fmtLocalDate, localToday, diffDays, parseLocalDate } from "@/lib/dates";
 import type { GoalType } from "@/lib/generated/prisma/enums";
 import {
@@ -39,11 +40,12 @@ export interface GoalsPageData {
   currentValues: Record<string, number>;
 }
 
-async function deriveCurrentValues(): Promise<Record<string, number>> {
+async function deriveCurrentValues(userId: string): Promise<Record<string, number>> {
   const values: Record<string, number> = {};
 
   // Latest non-null value per measurement column (scan newest → oldest).
   const measurements = await prisma.bodyMeasurement.findMany({
+    where: { userId },
     orderBy: { date: "desc" },
     take: 60,
   });
@@ -60,7 +62,7 @@ async function deriveCurrentValues(): Promise<Record<string, number>> {
   // Best stored e1RM PR per big-4 exercise.
   const prExerciseNames = Object.values(GOAL_EXERCISE_NAMES);
   const prs = await prisma.personalRecord.findMany({
-    where: { type: "BEST_E1RM", exercise: { name: { in: prExerciseNames } } },
+    where: { userId, type: "BEST_E1RM", exercise: { name: { in: prExerciseNames } } },
     include: { exercise: { select: { name: true } } },
   });
   for (const [type, name] of Object.entries(GOAL_EXERCISE_NAMES)) {
@@ -74,9 +76,10 @@ async function deriveCurrentValues(): Promise<Record<string, number>> {
 }
 
 export async function getGoalsPageData(): Promise<GoalsPageData> {
+  const userId = await requireUserId();
   const [goals, currentValues] = await Promise.all([
-    prisma.goal.findMany({ orderBy: { createdAt: "asc" } }),
-    deriveCurrentValues(),
+    prisma.goal.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
+    deriveCurrentValues(userId),
   ]);
   const today = localToday();
 

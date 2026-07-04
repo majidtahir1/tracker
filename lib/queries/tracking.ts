@@ -4,6 +4,7 @@
  * serializable props shaped here (ARCHITECTURE.md §5).
  */
 import { prisma } from "@/lib/db";
+import { requireUserId } from "@/lib/session";
 import { addDays, type LocalDate } from "@/lib/dates";
 import { type RecoveryBand } from "@/lib/recovery";
 import {
@@ -88,7 +89,8 @@ const METRIC_DEFS: Array<{
 ];
 
 export async function getMeasurementsData(): Promise<MeasurementsData> {
-  const rows = await prisma.bodyMeasurement.findMany({ orderBy: { date: "asc" } });
+  const userId = await requireUserId();
+  const rows = await prisma.bodyMeasurement.findMany({ where: { userId }, orderBy: { date: "asc" } });
 
   const metrics: MeasurementMetric[] = METRIC_DEFS.map((def) => {
     const points: MetricPoint[] = [];
@@ -171,7 +173,11 @@ export interface PhotoMonthGroup {
 }
 
 export async function getPhotosData(): Promise<{ groups: PhotoMonthGroup[]; totalPhotos: number }> {
-  const rows = await prisma.progressPhoto.findMany({ orderBy: [{ date: "desc" }, { angle: "asc" }] });
+  const userId = await requireUserId();
+  const rows = await prisma.progressPhoto.findMany({
+    where: { userId },
+    orderBy: [{ date: "desc" }, { angle: "asc" }],
+  });
 
   const byDate = new Map<string, PhotoEntry>();
   for (const r of rows) {
@@ -243,13 +249,14 @@ export interface NutritionData {
 }
 
 export async function getNutritionData(today: LocalDate): Promise<NutritionData> {
+  const userId = await requireUserId();
   const [settings, logs, totalLogged] = await Promise.all([
-    prisma.appSettings.findUnique({ where: { id: "singleton" } }),
+    prisma.appSettings.findUnique({ where: { userId } }),
     prisma.nutritionLog.findMany({
-      where: { date: { gte: addDays(today, -29), lte: today } },
+      where: { userId, date: { gte: addDays(today, -29), lte: today } },
       orderBy: { date: "asc" },
     }),
-    prisma.nutritionLog.count(),
+    prisma.nutritionLog.count({ where: { userId } }),
   ]);
 
   const byDate = new Map(logs.map((l) => [l.date, l]));
@@ -351,15 +358,17 @@ export interface RecoveryData {
 }
 
 export async function getRecoveryData(today: LocalDate): Promise<RecoveryData> {
+  const userId = await requireUserId();
   const windowStart = addDays(today, -13);
   const [logs, whoopWindow, whoopTodayRow, sleepToday, cycleToday, totalLogged, latest] =
     await Promise.all([
       prisma.recoveryLog.findMany({
-        where: { date: { gte: windowStart, lte: today } },
+        where: { userId, date: { gte: windowStart, lte: today } },
         orderBy: { date: "asc" },
       }),
       prisma.whoopRecovery.findMany({
         where: {
+          userId,
           date: { gte: windowStart, lte: today },
           scoreState: "SCORED",
           userCalibrating: false,
@@ -367,11 +376,11 @@ export async function getRecoveryData(today: LocalDate): Promise<RecoveryData> {
         },
         select: { date: true, recoveryScore: true },
       }),
-      prisma.whoopRecovery.findFirst({ where: { date: today } }),
-      prisma.whoopSleep.findFirst({ where: { date: today, isNap: false }, orderBy: { end: "desc" } }),
-      prisma.whoopCycle.findFirst({ where: { date: today }, orderBy: { start: "desc" } }),
-      prisma.recoveryLog.count(),
-      getLatestEffectiveRecovery(today),
+      prisma.whoopRecovery.findFirst({ where: { userId, date: today } }),
+      prisma.whoopSleep.findFirst({ where: { userId, date: today, isNap: false }, orderBy: { end: "desc" } }),
+      prisma.whoopCycle.findFirst({ where: { userId, date: today }, orderBy: { start: "desc" } }),
+      prisma.recoveryLog.count({ where: { userId } }),
+      getLatestEffectiveRecovery(userId, today),
     ]);
 
   const byDate = new Map(logs.map((l) => [l.date, l]));

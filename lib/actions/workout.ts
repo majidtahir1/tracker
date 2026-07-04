@@ -18,6 +18,7 @@ import {
   type DetectedPr,
 } from "@/lib/pr";
 import { prAchievedNotification } from "@/lib/notifications";
+import { requireUserId } from "@/lib/session";
 import {
   getDeloadPct,
   getLatestBlock,
@@ -174,6 +175,7 @@ export interface LogSetResult {
 }
 
 export async function logSet(input: LogSetInput): Promise<LogSetResult> {
+  const userId = await requireUserId();
   const { sessionExerciseId, setNumber } = input;
   const weight = Number(input.weight);
   const reps = Math.round(Number(input.reps));
@@ -234,7 +236,7 @@ export async function logSet(input: LogSetInput): Promise<LogSetResult> {
       se.session.isDeload
     );
     for (const pr of detected) {
-      fired.push(await persistPr(pr, se.exerciseId, se.exercise.name, se.templateExerciseId, se.session.date, setLog.id));
+      fired.push(await persistPr(userId, pr, se.exerciseId, se.exercise.name, se.templateExerciseId, se.session.date, setLog.id));
     }
   }
 
@@ -275,6 +277,7 @@ function fmtPrValue(pr: DetectedPr): string {
 }
 
 async function persistPr(
+  userId: string,
   pr: DetectedPr,
   exerciseId: string,
   exerciseName: string,
@@ -304,14 +307,14 @@ async function persistPr(
         },
       });
 
-  const candidate = prAchievedNotification({
+  const candidate = prAchievedNotification(userId, {
     exerciseName,
     prLabel: PR_TYPE_LABELS[pr.type],
     value: fmtPrValue(pr),
     personalRecordId: row.id,
   });
-  const existingNotification = await prisma.notification.findFirst({
-    where: { userId: null, dedupeKey: candidate.dedupeKey },
+  const existingNotification = await prisma.notification.findUnique({
+    where: { userId_dedupeKey: { userId, dedupeKey: candidate.dedupeKey } },
   });
   if (existingNotification) {
     await prisma.notification.update({
@@ -321,6 +324,7 @@ async function persistPr(
   } else {
     await prisma.notification.create({
       data: {
+        userId,
         type: candidate.type,
         title: candidate.title,
         body: candidate.body,
@@ -344,6 +348,7 @@ export interface FinishResult {
 }
 
 export async function finishWorkout(sessionId: string): Promise<FinishResult> {
+  const userId = await requireUserId();
   const session = await prisma.workoutSession.findUnique({
     where: { id: sessionId },
     include: { exercises: { include: { exercise: true, sets: true } } },
@@ -363,7 +368,7 @@ export async function finishWorkout(sessionId: string): Promise<FinishResult> {
       const pr = detectSessionVolumePR(exVolume, bests, session.isDeload);
       if (pr) {
         fired.push(
-          await persistPr(pr, ex.exerciseId, ex.exercise.name, ex.templateExerciseId, session.date, null)
+          await persistPr(userId, pr, ex.exerciseId, ex.exercise.name, ex.templateExerciseId, session.date, null)
         );
       }
     }

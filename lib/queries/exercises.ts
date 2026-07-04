@@ -235,7 +235,7 @@ export async function getExerciseDetail(id: string): Promise<ExerciseDetail | nu
   sessionLog.reverse(); // newest first for the table
 
   // Per-slot recommendation from lib/progression (effective recovery score).
-  const latestRecovery = await getLatestEffectiveRecovery(localToday());
+  const latestRecovery = await getLatestEffectiveRecovery(userId, localToday());
 
   const recommendations: SlotRecommendation[] = exercise.templateSlots.map((slot) => {
     const slotHistory = sessionExercises

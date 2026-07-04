@@ -3,6 +3,7 @@
  * Every derived stat computes here; client charts receive plain props.
  */
 import { prisma } from "@/lib/db";
+import { requireUserId } from "@/lib/session";
 import { addDays, isoWeekMonday, localToday, parseLocalDate, type LocalDate } from "@/lib/dates";
 import { epley } from "@/lib/e1rm";
 import { setVolume, parseSecondaryMuscles, WEEKLY_SET_TARGETS } from "@/lib/volume";
@@ -145,6 +146,7 @@ function shortDate(date: LocalDate): string {
 const TRAINING_DOWS = new Set([1, 2, 4, 5]);
 
 export async function getAnalyticsData(range: AnalyticsRange): Promise<AnalyticsData> {
+  const userId = await requireUserId();
   const today = localToday();
   const days = RANGE_DAYS[range];
   const cutoff = days == null ? null : addDays(today, -days);
@@ -153,7 +155,7 @@ export async function getAnalyticsData(range: AnalyticsRange): Promise<Analytics
 
   const [sessions, prRows, measurements, recoveryLogs, firstBlock, whoopRecoveries, whoopSleeps, whoopCycles] = await Promise.all([
     prisma.workoutSession.findMany({
-      where: { date: { lte: today, ...(cutoff ? { gte: cutoff } : {}) } },
+      where: { userId, date: { lte: today, ...(cutoff ? { gte: cutoff } : {}) } },
       orderBy: { date: "asc" },
       include: {
         exercises: {
@@ -162,31 +164,31 @@ export async function getAnalyticsData(range: AnalyticsRange): Promise<Analytics
       },
     }),
     prisma.personalRecord.findMany({
-      where: { type: "BEST_E1RM" },
+      where: { userId, type: "BEST_E1RM" },
       select: { exerciseId: true, date: true },
     }),
     prisma.bodyMeasurement.findMany({
-      where: { weight: { not: null }, ...(cutoff ? { date: { gte: cutoff, lte: today } } : { date: { lte: today } }) },
+      where: { userId, weight: { not: null }, ...(cutoff ? { date: { gte: cutoff, lte: today } } : { date: { lte: today } }) },
       orderBy: { date: "asc" },
       select: { date: true, weight: true },
     }),
     prisma.recoveryLog.findMany({
-      where: { score: { not: null }, ...(cutoff ? { date: { gte: cutoff, lte: today } } : { date: { lte: today } }) },
+      where: { userId, score: { not: null }, ...(cutoff ? { date: { gte: cutoff, lte: today } } : { date: { lte: today } }) },
       select: { date: true, score: true },
     }),
-    prisma.trainingBlock.findFirst({ orderBy: { startDate: "asc" }, select: { startDate: true } }),
+    prisma.trainingBlock.findFirst({ where: { userId }, orderBy: { startDate: "asc" }, select: { startDate: true } }),
     prisma.whoopRecovery.findMany({
-      where: { ...rangeFilter },
+      where: { userId, ...rangeFilter },
       orderBy: { date: "asc" },
       select: { date: true, recoveryScore: true, hrvRmssdMilli: true },
     }),
     prisma.whoopSleep.findMany({
-      where: { isNap: false, ...rangeFilter },
+      where: { userId, isNap: false, ...rangeFilter },
       orderBy: { date: "asc" },
       select: { date: true, inBedMilli: true, awakeMilli: true, performancePct: true },
     }),
     prisma.whoopCycle.findMany({
-      where: { strain: { not: null }, ...rangeFilter },
+      where: { userId, strain: { not: null }, ...rangeFilter },
       orderBy: { date: "asc" },
       select: { date: true, strain: true },
     }),

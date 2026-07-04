@@ -30,13 +30,13 @@ const usableWhoopRecovery = {
 } as const;
 
 /** Effective recovery for one date: WHOOP first, else the manual log. */
-export async function getEffectiveRecovery(date: LocalDate): Promise<EffectiveRecovery> {
+export async function getEffectiveRecovery(userId: string, date: LocalDate): Promise<EffectiveRecovery> {
   const [whoop, manual] = await Promise.all([
     prisma.whoopRecovery.findFirst({
-      where: { date, ...usableWhoopRecovery },
+      where: { userId, date, ...usableWhoopRecovery },
       select: { recoveryScore: true },
     }),
-    prisma.recoveryLog.findFirst({ where: { userId: null, date }, select: { score: true } }),
+    prisma.recoveryLog.findFirst({ where: { userId, date }, select: { score: true } }),
   ]);
   if (whoop?.recoveryScore != null) {
     return { date, score: whoop.recoveryScore, band: recoveryBand(whoop.recoveryScore), source: "whoop" };
@@ -52,16 +52,17 @@ export async function getEffectiveRecovery(date: LocalDate): Promise<EffectiveRe
  * WHOOP wins when both sources land on the same date.
  */
 export async function getLatestEffectiveRecovery(
+  userId: string,
   today: LocalDate
 ): Promise<EffectiveRecovery & { isToday: boolean }> {
   const [whoop, manual] = await Promise.all([
     prisma.whoopRecovery.findFirst({
-      where: { date: { lte: today }, ...usableWhoopRecovery },
+      where: { userId, date: { lte: today }, ...usableWhoopRecovery },
       orderBy: { date: "desc" },
       select: { date: true, recoveryScore: true },
     }),
     prisma.recoveryLog.findFirst({
-      where: { date: { lte: today }, score: { not: null } },
+      where: { userId, date: { lte: today }, score: { not: null } },
       orderBy: { date: "desc" },
       select: { date: true, score: true },
     }),
@@ -124,23 +125,23 @@ export function toCoachWhoopContext(ctx: WhoopDayContext): CoachWhoopContext | n
 }
 
 /** One-call WHOOP context bundle for the AI coaches (structured numbers only). */
-export async function getWhoopDayContext(today: LocalDate): Promise<WhoopDayContext> {
+export async function getWhoopDayContext(userId: string, today: LocalDate): Promise<WhoopDayContext> {
   const yesterday = addDays(today, -1);
   const twoDaysAgo = addDays(today, -2);
 
   const [recoveryRow, sleepRow, yesterdayCycle, workouts] = await Promise.all([
-    prisma.whoopRecovery.findFirst({ where: { date: today, scoreState: "SCORED" } }),
+    prisma.whoopRecovery.findFirst({ where: { userId, date: today, scoreState: "SCORED" } }),
     prisma.whoopSleep.findFirst({
-      where: { date: { in: [today, yesterday] }, isNap: false },
+      where: { userId, date: { in: [today, yesterday] }, isNap: false },
       orderBy: { end: "desc" },
     }),
     prisma.whoopCycle.findFirst({
-      where: { date: yesterday, strain: { not: null } },
+      where: { userId, date: yesterday, strain: { not: null } },
       orderBy: { start: "desc" },
       select: { strain: true },
     }),
     prisma.whoopWorkout.findMany({
-      where: { date: { gte: twoDaysAgo, lte: today } },
+      where: { userId, date: { gte: twoDaysAgo, lte: today } },
       orderBy: { start: "desc" },
       take: 5,
     }),

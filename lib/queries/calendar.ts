@@ -3,6 +3,7 @@
  * Month grid states per DESIGN.md §3.11, scheduled-vs-actual via lib/schedule.
  */
 import { prisma } from "@/lib/db";
+import { requireUserId } from "@/lib/session";
 import {
   addDays,
   isoDayOfWeek,
@@ -97,6 +98,7 @@ export async function getCalendarData(
   month: string,
   selectedDate: LocalDate | null
 ): Promise<CalendarData> {
+  const userId = await requireUserId();
   const today = localToday();
   const first = monthStart(month);
   const last = monthEnd(month);
@@ -105,18 +107,18 @@ export async function getCalendarData(
 
   const [blocks, sessions, settings, monthMeasurements, monthPhotos, anyCompleted, whoopWorkouts] =
     await Promise.all([
-      prisma.trainingBlock.findMany({ orderBy: { startDate: "asc" } }),
+      prisma.trainingBlock.findMany({ where: { userId }, orderBy: { startDate: "asc" } }),
       prisma.workoutSession.findMany({
-        where: { date: { gte: gridStart, lte: gridEnd } },
+        where: { userId, date: { gte: gridStart, lte: gridEnd } },
         select: { id: true, date: true, status: true, totalVolume: true, template: { select: { name: true } } },
       }),
-      prisma.appSettings.findUnique({ where: { id: "singleton" } }),
-      prisma.bodyMeasurement.count({ where: { date: { gte: first, lte: last } } }),
-      prisma.progressPhoto.count({ where: { date: { gte: first, lte: last } } }),
-      prisma.workoutSession.count({ where: { status: "COMPLETED" } }),
+      prisma.appSettings.findUnique({ where: { userId } }),
+      prisma.bodyMeasurement.count({ where: { userId, date: { gte: first, lte: last } } }),
+      prisma.progressPhoto.count({ where: { userId, date: { gte: first, lte: last } } }),
+      prisma.workoutSession.count({ where: { userId, status: "COMPLETED" } }),
       // One batch load for the whole grid; day cells and the detail panel share it.
       prisma.whoopWorkout.findMany({
-        where: { date: { gte: gridStart, lte: gridEnd } },
+        where: { userId, date: { gte: gridStart, lte: gridEnd } },
         orderBy: { start: "asc" },
         select: { date: true, sportName: true, start: true, end: true, strain: true, kilojoule: true },
       }),
@@ -179,14 +181,14 @@ export async function getCalendarData(
     const day = buildDay(selectedDate);
     const sessionRow = sessionByDate.get(selectedDate)
       ? await prisma.workoutSession.findFirst({
-          where: { date: selectedDate },
+          where: { userId, date: selectedDate },
           include: {
             exercises: { include: { sets: { where: { completed: true }, select: { id: true } } } },
           },
         })
       : null;
     const prCount = sessionRow
-      ? await prisma.personalRecord.count({ where: { date: selectedDate } })
+      ? await prisma.personalRecord.count({ where: { userId, date: selectedDate } })
       : 0;
     const reminders: string[] = [];
     if (day.photoReminder) reminders.push("Monthly progress photos due");

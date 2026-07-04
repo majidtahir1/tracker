@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { requireUserId } from "@/lib/session";
 import { localToday } from "@/lib/dates";
 import { getWhoopDayContext, toCoachWhoopContext } from "@/lib/queries/effective-recovery";
 
@@ -44,6 +45,7 @@ async function callMiniMax(context: unknown): Promise<CoachBriefData | null> {
 }
 
 export async function buildLatestCoachBrief(): Promise<{ sessionId: string; brief: CoachBriefData } | null> {
+  const userId = await requireUserId();
   const session = await prisma.workoutSession.findFirst({
     where: { status: "COMPLETED" }, orderBy: [{ date: "desc" }, { completedAt: "desc" }],
     include: { template: true, exercises: { orderBy: { sortOrder: "asc" }, include: { exercise: true, sets: { where: { completed: true } } } } },
@@ -55,7 +57,7 @@ export async function buildLatestCoachBrief(): Promise<{ sessionId: string; brie
   const [prExercises, priorWorkoutCount, whoopDay] = await Promise.all([
     prisma.personalRecord.findMany({ where: { date: session.date }, distinct: ["exerciseId"], select: { exerciseId: true } }),
     prisma.workoutSession.count({ where: { status: "COMPLETED", date: { lt: session.date } } }),
-    getWhoopDayContext(localToday()),
+    getWhoopDayContext(userId, localToday()),
   ]);
   const whoop = toCoachWhoopContext(whoopDay);
   const context = {

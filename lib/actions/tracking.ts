@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { unlink } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "@/lib/db";
+import { requireUserId } from "@/lib/session";
 import { recoveryScore, isFatigued } from "@/lib/recovery";
 import { fatigueWarningNotification } from "@/lib/notifications";
 
@@ -138,6 +139,7 @@ export async function saveRecovery(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const userId = await requireUserId();
   const date = parseDate(formData);
   if (!date) return { ok: false, error: "Pick a valid date." };
 
@@ -177,19 +179,19 @@ export async function saveRecovery(
   const data = { sleepHours, ...ratings, score, notes: parseNotes(formData) };
 
   const existingRecovery = await prisma.recoveryLog.findFirst({
-    where: { userId: null, date },
+    where: { userId, date },
   });
   if (existingRecovery) {
     await prisma.recoveryLog.update({ where: { id: existingRecovery.id }, data });
   } else {
-    await prisma.recoveryLog.create({ data: { date, ...data } });
+    await prisma.recoveryLog.create({ data: { userId, date, ...data } });
   }
 
   // Low score → fatigue warning notification (idempotent via dedupeKey).
   if (isFatigued(score) && score != null) {
-    const candidate = fatigueWarningNotification(date, score);
-    const existingNotification = await prisma.notification.findFirst({
-      where: { userId: null, dedupeKey: candidate.dedupeKey },
+    const candidate = fatigueWarningNotification(userId, date, score);
+    const existingNotification = await prisma.notification.findUnique({
+      where: { userId_dedupeKey: { userId, dedupeKey: candidate.dedupeKey } },
     });
     if (!existingNotification) {
       await prisma.notification.create({ data: candidate });
