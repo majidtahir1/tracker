@@ -90,15 +90,20 @@ export async function POST(request: Request) {
     await writeFile(path.join(photosDir, name), Buffer.from(await file.arrayBuffer()));
 
     // Replacing the same date+angle: keep the unique row, remove the old file.
-    const existing = await prisma.progressPhoto.findUnique({
-      where: { date_angle: { date, angle } },
+    // (SQLite unique indexes treat every NULL userId as distinct, so we can't
+    // rely on the compound unique key while userId is unset — findFirst instead.)
+    const existing = await prisma.progressPhoto.findFirst({
+      where: { userId: null, date, angle },
     });
 
-    const row = await prisma.progressPhoto.upsert({
-      where: { date_angle: { date, angle } },
-      create: { date, angle, filePath, weight, bodyFat, notes },
-      update: { filePath, weight, bodyFat, notes },
-    });
+    const row = existing
+      ? await prisma.progressPhoto.update({
+          where: { id: existing.id },
+          data: { filePath, weight, bodyFat, notes },
+        })
+      : await prisma.progressPhoto.create({
+          data: { date, angle, filePath, weight, bodyFat, notes },
+        });
 
     if (existing && existing.filePath !== filePath) {
       const old = path.resolve(path.join(process.cwd(), "public", existing.filePath));

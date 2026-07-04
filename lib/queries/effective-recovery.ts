@@ -36,7 +36,7 @@ export async function getEffectiveRecovery(date: LocalDate): Promise<EffectiveRe
       where: { date, ...usableWhoopRecovery },
       select: { recoveryScore: true },
     }),
-    prisma.recoveryLog.findUnique({ where: { date }, select: { score: true } }),
+    prisma.recoveryLog.findFirst({ where: { userId: null, date }, select: { score: true } }),
   ]);
   if (whoop?.recoveryScore != null) {
     return { date, score: whoop.recoveryScore, band: recoveryBand(whoop.recoveryScore), source: "whoop" };

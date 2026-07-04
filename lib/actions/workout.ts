@@ -47,8 +47,8 @@ export async function startWorkout(formData: FormData): Promise<void> {
   if (!templateId || !DATE_RE.test(date)) throw new Error("Invalid start request");
 
   // Resume: an existing session for this template+date just flips to IN_PROGRESS.
-  const existing = await prisma.workoutSession.findUnique({
-    where: { templateId_date: { templateId, date } },
+  const existing = await prisma.workoutSession.findFirst({
+    where: { userId: null, templateId, date },
     include: { exercises: true },
   });
   if (existing) {
@@ -310,17 +310,25 @@ async function persistPr(
     value: fmtPrValue(pr),
     personalRecordId: row.id,
   });
-  await prisma.notification.upsert({
-    where: { dedupeKey: candidate.dedupeKey },
-    create: {
-      type: candidate.type,
-      title: candidate.title,
-      body: candidate.body,
-      href: candidate.href,
-      dedupeKey: candidate.dedupeKey,
-    },
-    update: { title: candidate.title, body: candidate.body },
+  const existingNotification = await prisma.notification.findFirst({
+    where: { userId: null, dedupeKey: candidate.dedupeKey },
   });
+  if (existingNotification) {
+    await prisma.notification.update({
+      where: { id: existingNotification.id },
+      data: { title: candidate.title, body: candidate.body },
+    });
+  } else {
+    await prisma.notification.create({
+      data: {
+        type: candidate.type,
+        title: candidate.title,
+        body: candidate.body,
+        href: candidate.href,
+        dedupeKey: candidate.dedupeKey,
+      },
+    });
+  }
 
   return { type: pr.type, label: PR_TYPE_LABELS[pr.type], display: fmtPrValue(pr) };
 }

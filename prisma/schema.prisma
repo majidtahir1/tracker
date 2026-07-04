@@ -124,6 +124,7 @@ model Exercise {
   personalRecords  PersonalRecord[]
   subEventsOld     SubstitutionEvent[]   @relation("subOld")
   subEventsNew     SubstitutionEvent[]   @relation("subNew")
+  prefs            UserExercisePref[]
 }
 
 // Curated "replacement exercises" list shown in the substitution picker.
@@ -213,6 +214,10 @@ model SubstitutionEvent {
   templateExercise   TemplateExercise @relation(fields: [templateExerciseId], references: [id], onDelete: Cascade)
   oldExercise        Exercise         @relation("subOld", fields: [oldExerciseId], references: [id])
   newExercise        Exercise         @relation("subNew", fields: [newExerciseId], references: [id])
+  userId             String?
+  user               User?            @relation("SubstitutionEventUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // ---------- Blocks & weeks ----------
@@ -221,10 +226,15 @@ model SubstitutionEvent {
 
 model TrainingBlock {
   id          String           @id @default(cuid())
-  cycleNumber Int              @unique // 1st 13-week cycle, 2nd, ...
+  cycleNumber Int // 1st 13-week cycle, 2nd, ...
   startDate   String // YYYY-MM-DD, always a Monday
   notes       String?
   sessions    WorkoutSession[]
+  userId      String?
+  user        User?            @relation("TrainingBlockUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, cycleNumber])
+  @@index([userId])
 }
 
 // week number & phase are DERIVED from (today - startDate) in lib/schedule.ts,
@@ -248,8 +258,11 @@ model WorkoutSession {
   template    WorkoutTemplate   @relation(fields: [templateId], references: [id])
   block       TrainingBlock     @relation(fields: [blockId], references: [id])
   exercises   SessionExercise[]
+  userId      String?
+  user        User?             @relation("WorkoutSessionUser", fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([templateId, date])
+  @@unique([userId, templateId, date])
+  @@index([userId])
   @@index([date])
 }
 
@@ -307,15 +320,18 @@ model PersonalRecord {
   setLogId           String? // provenance
   seenByUser         Boolean  @default(false) // drives "new PR" badge
   exercise           Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  userId             String?
+  user               User?    @relation("PersonalRecordUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([exerciseId, type, value])
+  @@index([userId])
 }
 
 // ---------- Body / lifestyle tracking ----------
 
 model BodyMeasurement {
   id           String  @id @default(cuid())
-  date         String  @unique // YYYY-MM-DD
+  date         String // YYYY-MM-DD
   weight       Float? // lb
   bodyFat      Float? // %
   waist        Float? // inches (all girths in inches)
@@ -331,6 +347,11 @@ model BodyMeasurement {
   rightCalf    Float?
   neck         Float?
   notes        String?
+  userId       String?
+  user         User?   @relation("BodyMeasurementUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId])
 }
 
 model ProgressPhoto {
@@ -341,13 +362,16 @@ model ProgressPhoto {
   weight   Float?
   bodyFat  Float?
   notes    String?
+  userId   String?
+  user     User?      @relation("ProgressPhotoUser", fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([date, angle])
+  @@unique([userId, date, angle])
+  @@index([userId])
 }
 
 model NutritionLog {
   id       String  @id @default(cuid())
-  date     String  @unique // YYYY-MM-DD
+  date     String // YYYY-MM-DD
   calories Int?
   protein  Int? // g
   carbs    Int?
@@ -355,11 +379,16 @@ model NutritionLog {
   fiber    Int?
   waterOz  Int?
   notes    String?
+  userId   String?
+  user     User?   @relation("NutritionLogUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId])
 }
 
 model RecoveryLog {
   id                String  @id @default(cuid())
-  date              String  @unique // YYYY-MM-DD
+  date              String // YYYY-MM-DD
   sleepHours        Float?
   sleepQuality      Int? // 1-5
   stress            Int? // 1-5 (5 = worst)
@@ -369,6 +398,11 @@ model RecoveryLog {
   soreness          Int? // 1-5 (5 = wrecked)
   score             Int? // 0-100, computed & stored on save
   notes             String?
+  userId            String?
+  user              User?   @relation("RecoveryLogUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId])
 }
 
 // ---------- Goals & notifications ----------
@@ -384,8 +418,11 @@ model Goal {
   targetDate       String? // YYYY-MM-DD
   achievedAt       String? // YYYY-MM-DD
   createdAt        DateTime @default(now())
+  userId           String?
+  user             User?    @relation("GoalUser", fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([type, measurementField])
+  @@unique([userId, type, measurementField])
+  @@index([userId])
 }
 
 // currentValue is DERIVED server-side (latest measurement / best e1rm), never stored.
@@ -397,11 +434,15 @@ model Notification {
   body      String?
   href      String? // deep link, e.g. "/workout/today"
   // idempotency key so generators never duplicate: e.g. "PROGRESSION:tmplExId:2026-07-06"
-  dedupeKey String           @unique
+  dedupeKey String // unique per user, see @@unique below
   read      Boolean          @default(false)
   createdAt DateTime         @default(now())
+  userId    String?
+  user      User?            @relation("NotificationUser", fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, dedupeKey])
   @@index([read, createdAt])
+  @@index([userId])
 }
 
 // One cached AI dashboard reflection per completed workout.
@@ -414,6 +455,10 @@ model CoachBrief {
   encouragement String
   source        String
   createdAt     DateTime @default(now())
+  userId        String?
+  user          User?    @relation("CoachBriefUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // ---------- WHOOP integration ----------
@@ -434,6 +479,8 @@ model WhoopConnection {
   lastSyncError String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  userId        String?   @unique
+  user          User?     @relation("WhoopConnectionUser", fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // Physiological day: strain and heart-rate load.
@@ -448,8 +495,11 @@ model WhoopCycle {
   kilojoule    Float?
   avgHeartRate Int?
   maxHeartRate Int?
+  userId       String?
+  user         User?     @relation("WhoopCycleUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([date])
+  @@index([userId])
 }
 
 // Recovery score for a cycle (WHOOP's native 0-100).
@@ -465,8 +515,11 @@ model WhoopRecovery {
   spo2Percentage   Float?
   skinTempCelsius  Float?
   userCalibrating  Boolean @default(false)
+  userId           String?
+  user             User?   @relation("WhoopRecoveryUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([date])
+  @@index([userId])
 }
 
 // Sleep activity (naps flagged, excluded from daily rollups).
@@ -490,8 +543,11 @@ model WhoopSleep {
   sleepCycleCount    Int?
   disturbanceCount   Int?
   sleepDebtMilli     Int? // sleep_needed.need_from_sleep_debt_milli
+  userId             String?
+  user               User?    @relation("WhoopSleepUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([date])
+  @@index([userId])
 }
 
 // WHOOP-detected activities; read-only context alongside logged lifting.
@@ -509,19 +565,37 @@ model WhoopWorkout {
   kilojoule         Float?
   distanceMeter     Float?
   altitudeGainMeter Float?
+  userId            String?
+  user              User?    @relation("WhoopWorkoutUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([date])
+  @@index([userId])
 }
 
 // ---------- App settings (single row, id="singleton") ----------
 
 model AppSettings {
-  id                     String @id @default("singleton")
-  proteinTargetG         Int    @default(180)
-  calorieTarget          Int    @default(2800)
-  deloadWeightPct        Float  @default(0.825) // 80-85% -> midpoint
-  photoReminderDay       Int    @default(1) // day of month
-  measurementReminderDay Int    @default(1)
+  id                     String  @id @default("singleton")
+  proteinTargetG         Int     @default(180)
+  calorieTarget          Int     @default(2800)
+  deloadWeightPct        Float   @default(0.825) // 80-85% -> midpoint
+  photoReminderDay       Int     @default(1) // day of month
+  measurementReminderDay Int     @default(1)
+  userId                 String? @unique
+  user                   User?   @relation("AppSettingsUser", fields: [userId], references: [id], onDelete: Cascade)
+  activeProgramId        String?
+}
+
+// Per-user exercise preferences over the shared catalog.
+model UserExercisePref {
+  id         String   @id @default(cuid())
+  userId     String
+  exerciseId String
+  isFavorite Boolean  @default(false)
+  user       User     @relation("UserExercisePrefUser", fields: [userId], references: [id], onDelete: Cascade)
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, exerciseId])
 }
 
 model User {
@@ -536,6 +610,25 @@ model User {
   displayUsername String?
   sessions        Session[]
   accounts        Account[]
+
+  trainingBlocks     TrainingBlock[]     @relation("TrainingBlockUser")
+  workoutSessions    WorkoutSession[]    @relation("WorkoutSessionUser")
+  personalRecords    PersonalRecord[]    @relation("PersonalRecordUser")
+  bodyMeasurements   BodyMeasurement[]   @relation("BodyMeasurementUser")
+  progressPhotos     ProgressPhoto[]     @relation("ProgressPhotoUser")
+  nutritionLogs      NutritionLog[]      @relation("NutritionLogUser")
+  recoveryLogs       RecoveryLog[]       @relation("RecoveryLogUser")
+  goals              Goal[]              @relation("GoalUser")
+  notifications      Notification[]      @relation("NotificationUser")
+  coachBriefs        CoachBrief[]        @relation("CoachBriefUser")
+  substitutionEvents SubstitutionEvent[] @relation("SubstitutionEventUser")
+  whoopCycles        WhoopCycle[]        @relation("WhoopCycleUser")
+  whoopRecoveries    WhoopRecovery[]     @relation("WhoopRecoveryUser")
+  whoopSleeps        WhoopSleep[]        @relation("WhoopSleepUser")
+  whoopWorkouts      WhoopWorkout[]      @relation("WhoopWorkoutUser")
+  whoopConnection    WhoopConnection?    @relation("WhoopConnectionUser")
+  appSettings        AppSettings?        @relation("AppSettingsUser")
+  exercisePrefs      UserExercisePref[]  @relation("UserExercisePrefUser")
 
   @@unique([email])
   @@unique([username])

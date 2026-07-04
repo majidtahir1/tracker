@@ -83,11 +83,14 @@ export async function saveMeasurement(
   if (!anyValue) return { ok: false, error: "Enter at least one measurement." };
   data.notes = parseNotes(formData);
 
-  await prisma.bodyMeasurement.upsert({
-    where: { date },
-    create: { date, ...data },
-    update: data,
+  const existingMeasurement = await prisma.bodyMeasurement.findFirst({
+    where: { userId: null, date },
   });
+  if (existingMeasurement) {
+    await prisma.bodyMeasurement.update({ where: { id: existingMeasurement.id }, data });
+  } else {
+    await prisma.bodyMeasurement.create({ data: { date, ...data } });
+  }
 
   revalidatePath("/measurements");
   revalidatePath("/");
@@ -115,11 +118,14 @@ export async function saveNutrition(
   if (!anyValue) return { ok: false, error: "Enter at least one value." };
   data.notes = parseNotes(formData);
 
-  await prisma.nutritionLog.upsert({
-    where: { date },
-    create: { date, ...data },
-    update: data,
+  const existingNutrition = await prisma.nutritionLog.findFirst({
+    where: { userId: null, date },
   });
+  if (existingNutrition) {
+    await prisma.nutritionLog.update({ where: { id: existingNutrition.id }, data });
+  } else {
+    await prisma.nutritionLog.create({ data: { date, ...data } });
+  }
 
   revalidatePath("/nutrition");
   revalidatePath("/");
@@ -170,20 +176,24 @@ export async function saveRecovery(
 
   const data = { sleepHours, ...ratings, score, notes: parseNotes(formData) };
 
-  await prisma.recoveryLog.upsert({
-    where: { date },
-    create: { date, ...data },
-    update: data,
+  const existingRecovery = await prisma.recoveryLog.findFirst({
+    where: { userId: null, date },
   });
+  if (existingRecovery) {
+    await prisma.recoveryLog.update({ where: { id: existingRecovery.id }, data });
+  } else {
+    await prisma.recoveryLog.create({ data: { date, ...data } });
+  }
 
   // Low score → fatigue warning notification (idempotent via dedupeKey).
   if (isFatigued(score) && score != null) {
     const candidate = fatigueWarningNotification(date, score);
-    await prisma.notification.upsert({
-      where: { dedupeKey: candidate.dedupeKey },
-      create: candidate,
-      update: {},
+    const existingNotification = await prisma.notification.findFirst({
+      where: { userId: null, dedupeKey: candidate.dedupeKey },
     });
+    if (!existingNotification) {
+      await prisma.notification.create({ data: candidate });
+    }
   }
 
   revalidatePath("/recovery");

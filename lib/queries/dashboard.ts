@@ -236,7 +236,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       where: { weight: { not: null }, date: { gte: addDays(today, -90) } },
       orderBy: { date: "asc" },
     }),
-    prisma.nutritionLog.findUnique({ where: { date: today } }),
+    prisma.nutritionLog.findFirst({ where: { userId: null, date: today } }),
     getLatestEffectiveRecovery(today),
     prisma.workoutSession.findMany({
       where: { status: "COMPLETED" },
@@ -258,8 +258,8 @@ export async function getDashboardData(): Promise<DashboardData> {
       const template = templates[offset % templates.length];
       if (!template) continue;
       if (offset === 0) {
-        const existing = await prisma.workoutSession.findUnique({
-          where: { templateId_date: { templateId: template.id, date } },
+        const existing = await prisma.workoutSession.findFirst({
+          where: { userId: null, templateId: template.id, date },
           select: { status: true },
         });
         if (existing && (existing.status === "COMPLETED" || existing.status === "SKIPPED")) continue;
@@ -366,17 +366,20 @@ export async function getDashboardData(): Promise<DashboardData> {
       );
     }
     for (const c of candidates) {
-      await prisma.notification.upsert({
-        where: { dedupeKey: c.dedupeKey },
-        update: {},
-        create: {
-          type: c.type,
-          title: c.title,
-          body: c.body ?? null,
-          href: c.href ?? null,
-          dedupeKey: c.dedupeKey,
-        },
+      const existingNotification = await prisma.notification.findFirst({
+        where: { userId: null, dedupeKey: c.dedupeKey },
       });
+      if (!existingNotification) {
+        await prisma.notification.create({
+          data: {
+            type: c.type,
+            title: c.title,
+            body: c.body ?? null,
+            href: c.href ?? null,
+            dedupeKey: c.dedupeKey,
+          },
+        });
+      }
     }
   }
 

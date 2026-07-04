@@ -317,11 +317,14 @@ async function main() {
 
   // 7. TrainingBlock 1 — starts Monday of the current week
   const startDate = isoWeekMondayOfToday();
-  await prisma.trainingBlock.upsert({
-    where: { cycleNumber: 1 },
-    update: { startDate },
-    create: { cycleNumber: 1, startDate },
+  const existingBlock = await prisma.trainingBlock.findFirst({
+    where: { userId: null, cycleNumber: 1 },
   });
+  if (existingBlock) {
+    await prisma.trainingBlock.update({ where: { id: existingBlock.id }, data: { startDate } });
+  } else {
+    await prisma.trainingBlock.create({ data: { cycleNumber: 1, startDate } });
+  }
 
   // ---- Verification summary ----
   const [exercises, alternatives, templates, slots, overrides, blocks] = await Promise.all([
