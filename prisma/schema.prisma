@@ -127,6 +127,7 @@ model Exercise {
 }
 
 // Curated "replacement exercises" list shown in the substitution picker.
+
 model ExerciseAlternative {
   id            String   @id @default(cuid())
   exerciseId    String
@@ -163,6 +164,7 @@ model WorkoutTemplate {
 }
 
 // THE progression slot. Stable id across substitutions.
+
 model TemplateExercise {
   id           String   @id @default(cuid())
   templateId   String
@@ -188,6 +190,7 @@ model TemplateExercise {
 }
 
 // "+1 set to X in Block 2/3"
+
 model BlockOverride {
   id                 String           @id @default(cuid())
   templateExerciseId String
@@ -199,6 +202,7 @@ model BlockOverride {
 }
 
 // Audit trail of substitutions on a slot (history itself lives on the slot id).
+
 model SubstitutionEvent {
   id                 String           @id @default(cuid())
   templateExerciseId String
@@ -214,6 +218,7 @@ model SubstitutionEvent {
 // ---------- Blocks & weeks ----------
 
 // A 13-week cycle: weeks 1-4 (block phase 1), 5-8 (2), 9-12 (3), 13 deload.
+
 model TrainingBlock {
   id          String           @id @default(cuid())
   cycleNumber Int              @unique // 1st 13-week cycle, 2nd, ...
@@ -400,6 +405,7 @@ model Notification {
 }
 
 // One cached AI dashboard reflection per completed workout.
+
 model CoachBrief {
   id            String   @id @default(cuid())
   sessionId     String   @unique
@@ -416,6 +422,7 @@ model CoachBrief {
 // to (cycle start day; sleep wake day; workout start day).
 
 // Single-row OAuth connection state (id="singleton").
+
 model WhoopConnection {
   id            String    @id @default("singleton")
   whoopUserId   String?
@@ -430,6 +437,7 @@ model WhoopConnection {
 }
 
 // Physiological day: strain and heart-rate load.
+
 model WhoopCycle {
   id           String    @id // WHOOP cycle id
   date         String // YYYY-MM-DD, cycle start local day
@@ -445,6 +453,7 @@ model WhoopCycle {
 }
 
 // Recovery score for a cycle (WHOOP's native 0-100).
+
 model WhoopRecovery {
   cycleId          String  @id
   sleepId          String?
@@ -461,6 +470,7 @@ model WhoopRecovery {
 }
 
 // Sleep activity (naps flagged, excluded from daily rollups).
+
 model WhoopSleep {
   id                 String   @id // WHOOP sleep UUID
   date               String // YYYY-MM-DD of wake time (end)
@@ -485,6 +495,7 @@ model WhoopSleep {
 }
 
 // WHOOP-detected activities; read-only context alongside logged lifting.
+
 model WhoopWorkout {
   id                String   @id // WHOOP workout UUID
   date              String // YYYY-MM-DD of start time
@@ -511,4 +522,70 @@ model AppSettings {
   deloadWeightPct        Float  @default(0.825) // 80-85% -> midpoint
   photoReminderDay       Int    @default(1) // day of month
   measurementReminderDay Int    @default(1)
+}
+
+model User {
+  id              String    @id
+  name            String
+  email           String
+  emailVerified   Boolean   @default(false)
+  image           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  username        String?
+  displayUsername String?
+  sessions        Session[]
+  accounts        Account[]
+
+  @@unique([email])
+  @@unique([username])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
 }
