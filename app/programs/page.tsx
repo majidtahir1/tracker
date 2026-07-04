@@ -10,7 +10,7 @@ export const metadata = { title: "Programs" };
 export const dynamic = "force-dynamic";
 
 export default async function ProgramsPage() {
-  const programs = await getPrograms();
+  const { programs, activeProgramId } = await getPrograms();
   return <div className="space-y-8">
     <PageHeader title="Programs" subtitle="Choose a program and manage its ordered training days." />
     <Card className="p-5"><form action={createProgram} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
@@ -20,7 +20,7 @@ export default async function ProgramsPage() {
     </form></Card>
     {programs.map(program => <section key={program.id} className="space-y-4">
       <div className="flex items-center justify-between"><div><h2 className="font-display text-xl font-semibold text-text">{program.name}</h2><p className="text-sm text-text-3">{program.description}</p></div>
-      {program.isActive ? <span className="text-xs font-semibold uppercase tracking-wider text-accent">Active program</span> : <form action={activateProgram}><input type="hidden" name="programId" value={program.id}/><Button variant="subtle">Use program</Button></form>}</div>
+      {program.id === activeProgramId ? <span className="text-xs font-semibold uppercase tracking-wider text-accent">Active program</span> : <form action={activateProgram}><input type="hidden" name="programId" value={program.id}/><Button variant="subtle">Use program</Button></form>}</div>
       <div className="grid gap-4 xl:grid-cols-2">{program.workouts.map(workout => <Card key={workout.id} className="p-5">
         <div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wider text-accent">Day {workout.dayNumber}</p><h3 className="mt-1 text-lg font-semibold text-text">{workout.name}</h3></div><ButtonLink href={`/programs/${workout.id}`} variant="subtle" size="sm">Edit</ButtonLink></div>
         <div className="space-y-2">{workout.exercises.map(slot => <div key={slot.id} className="flex items-center justify-between gap-3 text-sm"><span className="truncate text-text">{slot.exercise.name}</span><span className="shrink-0 tabular-nums text-text-3">{slot.baseSets} × {slot.repRangeMin}–{slot.repRangeMax}</span></div>)}</div>

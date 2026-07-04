@@ -4,6 +4,7 @@
  * returns plain serializable props for client components.
  */
 import { prisma } from "@/lib/db";
+import { requireUserId } from "@/lib/session";
 import { localToday } from "@/lib/dates";
 import { getLatestEffectiveRecovery } from "@/lib/queries/effective-recovery";
 import { epley } from "@/lib/e1rm";
@@ -49,10 +50,15 @@ const PRIORITY_RANK: Record<Priority, number> = {
 };
 
 export async function getExerciseLibrary(): Promise<ExerciseListItem[]> {
-  const exercises = await prisma.exercise.findMany({
-    orderBy: { name: "asc" },
-    include: { templateSlots: { select: { priority: true } } },
-  });
+  const userId = await requireUserId();
+  const [exercises, prefs] = await Promise.all([
+    prisma.exercise.findMany({
+      orderBy: { name: "asc" },
+      include: { templateSlots: { select: { priority: true } } },
+    }),
+    prisma.userExercisePref.findMany({ where: { userId } }),
+  ]);
+  const favSet = new Set(prefs.filter((p) => p.isFavorite).map((p) => p.exerciseId));
 
   return exercises.map((e) => {
     const top = e.templateSlots.reduce<Priority | null>((best, s) => {
@@ -68,7 +74,7 @@ export async function getExerciseLibrary(): Promise<ExerciseListItem[]> {
       equipment: e.equipment,
       type: e.type,
       difficulty: e.difficulty,
-      isFavorite: e.isFavorite,
+      isFavorite: favSet.has(e.id),
       injuryFriendly: e.injuryFriendly,
       isBodyweight: e.isBodyweight,
       topPriority: top,
@@ -155,15 +161,19 @@ function fmtSet(weight: number, reps: number): string {
 }
 
 export async function getExerciseDetail(id: string): Promise<ExerciseDetail | null> {
-  const exercise = await prisma.exercise.findUnique({
-    where: { id },
-    include: {
-      substitutionsA: { include: { alternative: true } },
-      substitutionsB: { include: { exercise: true } },
-      personalRecords: { orderBy: { date: "desc" } },
-      templateSlots: { include: { template: true } },
-    },
-  });
+  const userId = await requireUserId();
+  const [exercise, pref] = await Promise.all([
+    prisma.exercise.findUnique({
+      where: { id },
+      include: {
+        substitutionsA: { include: { alternative: true } },
+        substitutionsB: { include: { exercise: true } },
+        personalRecords: { where: { userId }, orderBy: { date: "desc" } },
+        templateSlots: { include: { template: true } },
+      },
+    }),
+    prisma.userExercisePref.findUnique({ where: { userId_exerciseId: { userId, exerciseId: id } } }),
+  ]);
   if (!exercise) return null;
 
   // Alternatives: curated links in either direction, deduped.
@@ -187,7 +197,7 @@ export async function getExerciseDetail(id: string): Promise<ExerciseDetail | nu
         ...(slotIds.length > 0 ? [{ templateExerciseId: { in: slotIds } }] : []),
         { exerciseId: exercise.id },
       ],
-      session: { status: "COMPLETED" },
+      session: { userId, status: "COMPLETED" },
     },
     include: {
       sets: { orderBy: { setNumber: "asc" } },
@@ -282,7 +292,7 @@ export async function getExerciseDetail(id: string): Promise<ExerciseDetail | nu
     difficulty: exercise.difficulty,
     videoUrl: exercise.videoUrl,
     notes: exercise.notes,
-    isFavorite: exercise.isFavorite,
+    isFavorite: pref?.isFavorite ?? false,
     injuryFriendly: exercise.injuryFriendly,
     isBodyweight: exercise.isBodyweight,
     weightIncrement: exercise.weightIncrement,

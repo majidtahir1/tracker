@@ -4,6 +4,7 @@
  * compute here; clients receive plain serialized props.
  */
 import { prisma } from "@/lib/db";
+import { requireUserId } from "@/lib/session";
 import { matchWhoopWorkout } from "@/lib/whoop/match";
 import {
   addDays,
@@ -41,15 +42,18 @@ import type {
 // ---------------------------------------------------------------------------
 
 export async function getLatestBlock() {
-  return prisma.trainingBlock.findFirst({ orderBy: { cycleNumber: "desc" } });
+  const userId = await requireUserId();
+  return prisma.trainingBlock.findFirst({ where: { userId }, orderBy: { cycleNumber: "desc" } });
 }
 
 export async function getDeloadPct(): Promise<number> {
-  const settings = await prisma.appSettings.findUnique({ where: { id: "singleton" } });
+  const userId = await requireUserId();
+  const settings = await prisma.appSettings.findUnique({ where: { userId } });
   return settings?.deloadWeightPct ?? 0.825;
 }
 
 export async function getLatestRecoveryScore(): Promise<number | null> {
+  await requireUserId();
   // Effective score: WHOOP when synced for the day, else the manual log.
   const latest = await getLatestEffectiveRecovery(localToday());
   return latest.score;
@@ -86,12 +90,14 @@ export async function planSlot(
   isDeload: boolean,
   ctx: { deloadPct: number; latestRecoveryScore: number | null; beforeDate?: LocalDate }
 ): Promise<SlotPlan> {
+  const userId = await requireUserId();
   const targets = resolveTargets(slot, slot.blockOverrides, phase, isDeload);
 
   const prior = await prisma.sessionExercise.findMany({
     where: {
       templateExerciseId: slot.id,
       session: {
+        userId,
         status: "COMPLETED",
         isDeload: false,
         ...(ctx.beforeDate ? { date: { lt: ctx.beforeDate } } : {}),
@@ -211,6 +217,7 @@ export interface ProgramWorkout {
 
 /** The complete active program with targets resolved for the current block phase. */
 export async function getProgramOverview(): Promise<ProgramWorkout[]> {
+  await requireUserId();
   const today = localToday();
   const block = await getLatestBlock();
   const rawWeek = block ? weekInCycle(block, today) : 1;
@@ -251,11 +258,12 @@ export async function getProgramOverview(): Promise<ProgramWorkout[]> {
 }
 
 export async function getWorkoutOverview(): Promise<WorkoutOverview> {
+  const userId = await requireUserId();
   const today = localToday();
   const block = await getLatestBlock();
 
   const inProgressRaw = await prisma.workoutSession.findFirst({
-    where: { status: "IN_PROGRESS" },
+    where: { userId, status: "IN_PROGRESS" },
     orderBy: { date: "desc" },
     include: { template: true, exercises: { include: { sets: true } } },
   });
@@ -292,7 +300,10 @@ export async function getWorkoutOverview(): Promise<WorkoutOverview> {
   // Rotate through the active program's ordered days. Calendar weekdays do
   // not determine the workout; the user may always override this suggestion.
   let next: NextWorkoutPreview | null = null;
-  const activeProgram = await prisma.program.findFirst({ where: { isActive: true } });
+  const settings = await prisma.appSettings.findUnique({ where: { userId } });
+  const activeProgram = settings?.activeProgramId
+    ? await prisma.program.findUnique({ where: { id: settings.activeProgramId } })
+    : null;
   const templates = await prisma.workoutTemplate.findMany({
       where: { programId: activeProgram?.id, isActive: true },
       orderBy: [{ dayNumber: "asc" }, { sortOrder: "asc" }],
@@ -304,7 +315,7 @@ export async function getWorkoutOverview(): Promise<WorkoutOverview> {
       },
     });
   const lastCompleted = await prisma.workoutSession.findFirst({
-    where: { status: "COMPLETED", template: { programId: activeProgram?.id } },
+    where: { userId, status: "COMPLETED", template: { programId: activeProgram?.id } },
     orderBy: [{ date: "desc" }, { completedAt: "desc" }],
     select: { template: { select: { dayNumber: true } } },
   });
@@ -412,6 +423,7 @@ export interface SessionDetail {
 }
 
 export async function getSessionDetail(sessionId: string): Promise<SessionDetail | null> {
+  const userId = await requireUserId();
   const raw = await prisma.workoutSession.findUnique({
     where: { id: sessionId },
     include: {
@@ -426,7 +438,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
       },
     },
   });
-  if (!raw) return null;
+  if (!raw || raw.userId !== userId) return null;
 
   const exercises: LoggerExercise[] = [];
   for (const se of raw.exercises) {
@@ -436,7 +448,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
       where: {
         templateExerciseId: se.templateExerciseId,
         sessionId: { not: raw.id },
-        session: { status: "COMPLETED", isDeload: false, date: { lt: raw.date } },
+        session: { userId, status: "COMPLETED", isDeload: false, date: { lt: raw.date } },
       },
       orderBy: { session: { date: "desc" } },
       include: { sets: { orderBy: { setNumber: "asc" } } },
@@ -499,10 +511,11 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
     exercises,
   };
 
-  return { session, summary: await buildSummary(raw, exercises) };
+  return { session, summary: await buildSummary(userId, raw, exercises) };
 }
 
 async function buildSummary(
+  userId: string,
   raw: {
     id: string;
     date: string;
@@ -529,6 +542,7 @@ async function buildSummary(
   const exerciseIds = raw.exercises.map((ex) => ex.exerciseId);
   const prRows = await prisma.personalRecord.findMany({
     where: {
+      userId,
       OR: [
         ...(setLogIds.length > 0 ? [{ setLogId: { in: setLogIds } }] : []),
         { date: raw.date, setLogId: null, exerciseId: { in: exerciseIds } },
@@ -572,7 +586,7 @@ async function buildSummary(
   );
 
   const prevSession = await prisma.workoutSession.findFirst({
-    where: { templateId: raw.templateId, status: "COMPLETED", date: { lt: raw.date } },
+    where: { userId, templateId: raw.templateId, status: "COMPLETED", date: { lt: raw.date } },
     orderBy: { date: "desc" },
   });
   const prevVolume = prevSession?.totalVolume ?? null;
@@ -588,7 +602,7 @@ async function buildSummary(
 
   const whoopCandidates =
     raw.startedAt && raw.completedAt
-      ? await prisma.whoopWorkout.findMany({ where: { date: raw.date } })
+      ? await prisma.whoopWorkout.findMany({ where: { userId, date: raw.date } })
       : [];
   const whoop = toSessionWhoopStats(
     matchWhoopWorkout(raw.startedAt, raw.completedAt, whoopCandidates),
@@ -692,9 +706,10 @@ export interface HistoryWeekGroup {
 }
 
 export async function getHistory(): Promise<HistoryWeekGroup[]> {
+  const userId = await requireUserId();
   const [sessions, whoopRaw] = await Promise.all([
     prisma.workoutSession.findMany({
-      where: { status: { in: ["COMPLETED", "IN_PROGRESS", "SKIPPED"] } },
+      where: { userId, status: { in: ["COMPLETED", "IN_PROGRESS", "SKIPPED"] } },
       orderBy: { date: "desc" },
       include: {
         template: true,
@@ -703,7 +718,7 @@ export async function getHistory(): Promise<HistoryWeekGroup[]> {
         },
       },
     }),
-    prisma.whoopWorkout.findMany({ orderBy: { start: "desc" } }),
+    prisma.whoopWorkout.findMany({ where: { userId }, orderBy: { start: "desc" } }),
   ]);
   if (sessions.length === 0 && whoopRaw.length === 0) return [];
 
@@ -713,14 +728,14 @@ export async function getHistory(): Promise<HistoryWeekGroup[]> {
   const prRows =
     allSetIds.length > 0
       ? await prisma.personalRecord.findMany({
-          where: { setLogId: { in: allSetIds } },
+          where: { userId, setLogId: { in: allSetIds } },
           select: { setLogId: true },
         })
       : [];
   const prSetIds = new Set(prRows.map((p) => p.setLogId));
   // Session-volume PRs (setLogId null) matched by date+exercise.
   const volumePrs = await prisma.personalRecord.findMany({
-    where: { setLogId: null, type: "MOST_SESSION_VOLUME" },
+    where: { userId, setLogId: null, type: "MOST_SESSION_VOLUME" },
     select: { date: true, exerciseId: true },
   });
 
