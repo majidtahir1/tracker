@@ -11,7 +11,10 @@ import { provisionNewUser } from "@/lib/provision";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "sqlite" }),
-  emailAndPassword: { enabled: true },
+  emailAndPassword: { enabled: true, minPasswordLength: 6 },
+  // The Capacitor iOS shell reaches the dev server via the Mac's LAN IP,
+  // which fails the CSRF origin check against BETTER_AUTH_URL (localhost).
+  trustedOrigins: ["http://192.168.1.229:3000"],
   plugins: [username(), nextCookies()], // nextCookies must be last
   databaseHooks: {
     user: {

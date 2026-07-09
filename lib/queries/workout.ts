@@ -215,9 +215,18 @@ export interface ProgramWorkout {
   }>;
 }
 
-/** The complete active program with targets resolved for the current block phase. */
-export async function getProgramOverview(): Promise<ProgramWorkout[]> {
-  await requireUserId();
+export interface ProgramOverview {
+  id: string;
+  name: string;
+  workouts: ProgramWorkout[];
+}
+
+/** All programs with targets resolved for the current block phase, plus the user's active program. */
+export async function getProgramOverview(): Promise<{
+  programs: ProgramOverview[];
+  activeProgramId: string | null;
+}> {
+  const userId = await requireUserId();
   const today = localToday();
   const block = await getLatestBlock();
   const rawWeek = block ? weekInCycle(block, today) : 1;
@@ -225,36 +234,52 @@ export async function getProgramOverview(): Promise<ProgramWorkout[]> {
   const phase = blockPhase(week);
   const isDeload = isDeloadWeek(week);
 
-  const templates = await prisma.workoutTemplate.findMany({
-    where: { isActive: true },
-    orderBy: [{ sortOrder: "asc" }, { dayNumber: "asc" }],
-    include: {
-      exercises: {
-        orderBy: { sortOrder: "asc" },
-        include: { exercise: true, blockOverrides: true },
+  const [settings, programs] = await Promise.all([
+    prisma.appSettings.findUnique({ where: { userId } }),
+    prisma.program.findMany({
+      orderBy: { createdAt: "asc" },
+      include: {
+        workouts: {
+          where: { isActive: true },
+          orderBy: [{ sortOrder: "asc" }, { dayNumber: "asc" }],
+          include: {
+            exercises: {
+              orderBy: { sortOrder: "asc" },
+              include: { exercise: true, blockOverrides: true },
+            },
+          },
+        },
       },
-    },
-  });
-
-  return templates.map((template) => ({
-    id: template.id,
-    name: template.name,
-    dayNumber: template.dayNumber,
-    exercises: template.exercises.map((slot) => {
-      const targets = resolveTargets(slot, slot.blockOverrides, phase, isDeload);
-      return {
-        id: slot.id,
-        name: slot.exercise.name,
-        sets: targets.sets,
-        repMin: targets.repMin,
-        repMax: targets.repMax,
-        rirMin: targets.rirMin,
-        rirMax: targets.rirMax,
-        restSeconds: targets.restSeconds,
-        isPerSide: slot.isPerSide,
-      };
     }),
-  }));
+  ]);
+
+  const mapped: ProgramOverview[] = programs
+    .filter((program) => program.workouts.length > 0)
+    .map((program) => ({
+      id: program.id,
+      name: program.name,
+      workouts: program.workouts.map((template) => ({
+        id: template.id,
+        name: template.name,
+        dayNumber: template.dayNumber,
+        exercises: template.exercises.map((slot) => {
+          const targets = resolveTargets(slot, slot.blockOverrides, phase, isDeload);
+          return {
+            id: slot.id,
+            name: slot.exercise.name,
+            sets: targets.sets,
+            repMin: targets.repMin,
+            repMax: targets.repMax,
+            rirMin: targets.rirMin,
+            rirMax: targets.rirMax,
+            restSeconds: targets.restSeconds,
+            isPerSide: slot.isPerSide,
+          };
+        }),
+      })),
+    }));
+
+  return { programs: mapped, activeProgramId: settings?.activeProgramId ?? null };
 }
 
 export async function getWorkoutOverview(): Promise<WorkoutOverview> {

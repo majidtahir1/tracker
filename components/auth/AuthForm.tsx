@@ -49,6 +49,7 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
             <input
               id="username" value={username} onChange={(e) => setUsername(e.target.value)}
               required minLength={3} maxLength={30} autoComplete="username"
+              autoCapitalize="none" autoCorrect="off" spellCheck={false}
               pattern="[a-zA-Z0-9_.]+" title="Letters, numbers, underscores and dots only"
               className="w-full rounded-sm border border-border bg-surface px-3 py-2 text-sm text-text"
             />
@@ -57,7 +58,7 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
             <label htmlFor="password" className="text-xs font-medium text-text-3">Password</label>
             <input
               id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-              required minLength={8} maxLength={128}
+              required minLength={mode === "login" ? 1 : 6} maxLength={128}
               autoComplete={mode === "login" ? "current-password" : "new-password"}
               className="w-full rounded-sm border border-border bg-surface px-3 py-2 text-sm text-text"
             />
