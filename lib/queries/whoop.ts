@@ -3,6 +3,7 @@
  * connection status plus a fire-and-forget throttled auto-sync.
  */
 import { isWhoopConfigured } from "@/lib/whoop/config";
+import { requireUserId } from "@/lib/session";
 import { getConnection } from "@/lib/whoop/client";
 import { syncWhoop } from "@/lib/whoop/sync";
 
@@ -15,8 +16,9 @@ export interface WhoopStatus {
 }
 
 export async function getWhoopStatus(): Promise<WhoopStatus> {
+  const userId = await requireUserId();
   const configured = isWhoopConfigured();
-  const connection = configured ? await getConnection() : null;
+  const connection = configured ? await getConnection(userId) : null;
   return {
     configured,
     connected: connection != null,
@@ -32,8 +34,10 @@ export async function getWhoopStatus(): Promise<WhoopStatus> {
  */
 export async function maybeAutoSync(): Promise<void> {
   try {
-    await syncWhoop();
+    const userId = await requireUserId();
+    await syncWhoop(userId);
   } catch {
-    // syncWhoop already never throws; this is belt-and-braces.
+    // Swallow everything (including requireUserId's redirect) — callers
+    // fire-and-forget, so nothing may escape here.
   }
 }

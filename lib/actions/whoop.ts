@@ -6,6 +6,7 @@
  */
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
+import { requireUserId } from "@/lib/session";
 import { syncWhoop, type SyncResult } from "@/lib/whoop/sync";
 
 const WHOOP_PATHS = ["/recovery", "/", "/history", "/calendar", "/analytics"] as const;
@@ -16,14 +17,16 @@ function revalidateWhoopPaths(): void {
 
 /** Force a sync now (ignores the 15-minute throttle). */
 export async function syncWhoopNow(): Promise<SyncResult> {
-  const result = await syncWhoop({ force: true });
+  const userId = await requireUserId();
+  const result = await syncWhoop(userId, { force: true });
   revalidateWhoopPaths();
   return result;
 }
 
 /** Remove the WHOOP connection; already-synced data is kept. */
 export async function disconnectWhoop(): Promise<{ ok: boolean }> {
-  await prisma.whoopConnection.deleteMany({ where: { id: "singleton" } });
+  const userId = await requireUserId();
+  await prisma.whoopConnection.deleteMany({ where: { userId } });
   revalidateWhoopPaths();
   return { ok: true };
 }

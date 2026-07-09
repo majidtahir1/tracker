@@ -1,6 +1,6 @@
 /**
  * lib/whoop/client.ts — server-only authenticated WHOOP API client.
- * Token storage lives in the WhoopConnection singleton row; access tokens are
+ * Token storage lives in the per-user WhoopConnection row; access tokens are
  * auto-refreshed (and rotated refresh tokens persisted) before each call.
  * Never log tokens.
  */
@@ -25,9 +25,9 @@ type WhoopConnectionRow = NonNullable<
   Awaited<ReturnType<typeof prisma.whoopConnection.findUnique>>
 >;
 
-/** The singleton connection row, or null when WHOOP is not connected. */
-export async function getConnection(): Promise<WhoopConnectionRow | null> {
-  return prisma.whoopConnection.findUnique({ where: { id: "singleton" } });
+/** The user's connection row, or null when WHOOP is not connected. */
+export async function getConnection(userId: string): Promise<WhoopConnectionRow | null> {
+  return prisma.whoopConnection.findUnique({ where: { userId } });
 }
 
 async function postToken(params: Record<string, string>): Promise<WhoopTokenResponse> {
@@ -71,14 +71,14 @@ async function refreshTokens(connection: WhoopConnectionRow): Promise<WhoopConne
   } catch (err) {
     if (err instanceof WhoopAuthError) {
       await prisma.whoopConnection.update({
-        where: { id: "singleton" },
+        where: { id: connection.id },
         data: { lastSyncError: "reauth_required" },
       });
     }
     throw err;
   }
   return prisma.whoopConnection.update({
-    where: { id: "singleton" },
+    where: { id: connection.id },
     data: {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
@@ -88,9 +88,9 @@ async function refreshTokens(connection: WhoopConnectionRow): Promise<WhoopConne
   });
 }
 
-/** A valid access token, refreshing first when close to expiry. */
-async function getAccessToken(): Promise<string> {
-  let connection = await getConnection();
+/** A valid access token for the user, refreshing first when close to expiry. */
+async function getAccessToken(userId: string): Promise<string> {
+  let connection = await getConnection(userId);
   if (!connection) throw new WhoopAuthError("WHOOP is not connected");
   if (connection.expiresAt.getTime() - Date.now() < REFRESH_SKEW_MS) {
     connection = await refreshTokens(connection);
@@ -125,10 +125,11 @@ async function apiGet(url: string, accessToken: string): Promise<Response> {
  * "/activity/sleep") within [start, end], following next_token.
  */
 export async function fetchCollection<T>(
+  userId: string,
   path: string,
   opts: { start: Date; end: Date },
 ): Promise<T[]> {
-  const accessToken = await getAccessToken();
+  const accessToken = await getAccessToken(userId);
   const records: T[] = [];
   let nextToken: string | undefined;
 

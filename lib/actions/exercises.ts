@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { localToday } from "@/lib/dates";
+import { requireUserId } from "@/lib/session";
 import {
   Difficulty,
   Equipment,
@@ -41,11 +42,16 @@ function cleanUrl(raw: FormDataEntryValue | null): string | null | { error: stri
 
 /** Star/unstar an exercise from the library grid or detail header. */
 export async function toggleFavorite(exerciseId: string): Promise<void> {
+  const userId = await requireUserId();
   const exercise = await prisma.exercise.findUnique({ where: { id: exerciseId } });
   if (!exercise) return;
-  await prisma.exercise.update({
-    where: { id: exerciseId },
-    data: { isFavorite: !exercise.isFavorite },
+  const existing = await prisma.userExercisePref.findUnique({
+    where: { userId_exerciseId: { userId, exerciseId } },
+  });
+  await prisma.userExercisePref.upsert({
+    where: { userId_exerciseId: { userId, exerciseId } },
+    update: { isFavorite: !existing?.isFavorite },
+    create: { userId, exerciseId, isFavorite: true },
   });
   revalidatePath("/exercises");
   revalidatePath(`/exercises/${exerciseId}`);
@@ -56,6 +62,7 @@ export async function updateExercise(
   _prev: ExerciseActionState,
   formData: FormData
 ): Promise<ExerciseActionState> {
+  const userId = await requireUserId();
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, error: "Missing exercise id." };
 
@@ -63,6 +70,7 @@ export async function updateExercise(
   if (videoUrl !== null && typeof videoUrl === "object") return { ok: false, error: videoUrl.error };
 
   const notes = String(formData.get("notes") ?? "").trim() || null;
+  const isFavorite = formData.get("isFavorite") === "on";
 
   try {
     await prisma.exercise.update({
@@ -70,13 +78,18 @@ export async function updateExercise(
       data: {
         notes,
         videoUrl,
-        isFavorite: formData.get("isFavorite") === "on",
         injuryFriendly: formData.get("injuryFriendly") === "on",
       },
     });
   } catch {
     return { ok: false, error: "Could not save — exercise not found." };
   }
+
+  await prisma.userExercisePref.upsert({
+    where: { userId_exerciseId: { userId, exerciseId: id } },
+    update: { isFavorite },
+    create: { userId, exerciseId: id, isFavorite },
+  });
 
   revalidatePath("/exercises");
   revalidatePath(`/exercises/${id}`);
@@ -88,6 +101,7 @@ export async function createExercise(
   _prev: ExerciseActionState,
   formData: FormData
 ): Promise<ExerciseActionState> {
+  await requireUserId();
   const name = String(formData.get("name") ?? "").trim();
   if (name.length < 2) return { ok: false, error: "Name must be at least 2 characters." };
 
@@ -147,6 +161,7 @@ export async function substituteExercise(
   newExerciseId: string,
   reason?: string
 ): Promise<ExerciseActionState> {
+  const userId = await requireUserId();
   const slot = await prisma.templateExercise.findUnique({ where: { id: templateExerciseId } });
   if (!slot) return { ok: false, error: "Program slot not found." };
   if (slot.exerciseId === newExerciseId) return { ok: false, error: "Already using that exercise." };
@@ -161,6 +176,7 @@ export async function substituteExercise(
     }),
     prisma.substitutionEvent.create({
       data: {
+        userId,
         templateExerciseId,
         oldExerciseId: slot.exerciseId,
         newExerciseId,

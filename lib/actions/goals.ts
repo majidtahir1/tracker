@@ -7,6 +7,7 @@
  */
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
+import { requireUserId } from "@/lib/session";
 import { localToday } from "@/lib/dates";
 import { GoalType } from "@/lib/generated/prisma/enums";
 import {
@@ -31,6 +32,7 @@ export async function saveGoal(
   _prev: GoalActionState,
   formData: FormData
 ): Promise<GoalActionState> {
+  const userId = await requireUserId();
   const id = String(formData.get("id") ?? "").trim() || null;
 
   const type = String(formData.get("type") ?? "");
@@ -82,9 +84,11 @@ export async function saveGoal(
   };
 
   // One goal per slot: match by id when editing, else by (type, field).
+  // (measurementField can be null, and Prisma disallows null inside the
+  // compound-unique where input — so match slots via findFirst.)
   const existing = id
-    ? await prisma.goal.findUnique({ where: { id } })
-    : await prisma.goal.findFirst({ where: { type: goalType, measurementField } });
+    ? await prisma.goal.findFirst({ where: { id, userId } })
+    : await prisma.goal.findFirst({ where: { userId, type: goalType, measurementField } });
 
   if (id && !existing) return { ok: false, error: "Goal not found." };
 
@@ -98,7 +102,7 @@ export async function saveGoal(
   // When editing, block collisions with another goal in the same slot.
   if (id) {
     const clash = await prisma.goal.findFirst({
-      where: { type: goalType, measurementField, NOT: { id } },
+      where: { userId, type: goalType, measurementField, NOT: { id } },
     });
     if (clash) return { ok: false, error: `A ${label} goal already exists.` };
   }
@@ -106,7 +110,7 @@ export async function saveGoal(
   if (existing) {
     await prisma.goal.update({ where: { id: existing.id }, data });
   } else {
-    await prisma.goal.create({ data });
+    await prisma.goal.create({ data: { userId, ...data } });
   }
 
   revalidatePath("/goals");
@@ -115,21 +119,20 @@ export async function saveGoal(
 
 /** Mark a goal achieved today (celebration state persists even if values drift). */
 export async function markGoalAchieved(goalId: string): Promise<GoalActionState> {
-  try {
-    await prisma.goal.update({ where: { id: goalId }, data: { achievedAt: localToday() } });
-  } catch {
-    return { ok: false, error: "Goal not found." };
-  }
+  const userId = await requireUserId();
+  const { count } = await prisma.goal.updateMany({
+    where: { id: goalId, userId },
+    data: { achievedAt: localToday() },
+  });
+  if (count === 0) return { ok: false, error: "Goal not found." };
   revalidatePath("/goals");
   return { ok: true };
 }
 
 export async function deleteGoal(goalId: string): Promise<GoalActionState> {
-  try {
-    await prisma.goal.delete({ where: { id: goalId } });
-  } catch {
-    return { ok: false, error: "Goal not found." };
-  }
+  const userId = await requireUserId();
+  const { count } = await prisma.goal.deleteMany({ where: { id: goalId, userId } });
+  if (count === 0) return { ok: false, error: "Goal not found." };
   revalidatePath("/goals");
   return { ok: true };
 }

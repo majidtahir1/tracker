@@ -29,14 +29,44 @@ const usableWhoopRecovery = {
   recoveryScore: { not: null },
 } as const;
 
+type WhoopRecoveryRow = NonNullable<Awaited<ReturnType<typeof prisma.whoopRecovery.findFirst>>>;
+
+/**
+ * The newest cycle's recovery, falling back one cycle while the current one
+ * is unscored. Cycle-keyed rather than date-keyed: cycle dates are bucketed
+ * by machine-local start day, so a cycle starting near midnight lands on
+ * "yesterday" in some timezones and date == today lookups miss it.
+ */
+async function latestCycleRecovery(
+  userId: string,
+  filter: Partial<typeof usableWhoopRecovery> = usableWhoopRecovery,
+): Promise<{ recovery: WhoopRecoveryRow; isCurrentCycle: boolean } | null> {
+  const cycles = await prisma.whoopCycle.findMany({
+    where: { userId },
+    orderBy: { start: "desc" },
+    take: 2,
+    select: { id: true },
+  });
+  if (cycles.length === 0) return null;
+  const recoveries = await prisma.whoopRecovery.findMany({
+    where: { userId, cycleId: { in: cycles.map((c) => c.id) }, ...filter },
+  });
+  const byCycle = new Map(recoveries.map((r) => [r.cycleId, r]));
+  for (let i = 0; i < cycles.length; i++) {
+    const recovery = byCycle.get(cycles[i].id);
+    if (recovery) return { recovery, isCurrentCycle: i === 0 };
+  }
+  return null;
+}
+
 /** Effective recovery for one date: WHOOP first, else the manual log. */
-export async function getEffectiveRecovery(date: LocalDate): Promise<EffectiveRecovery> {
+export async function getEffectiveRecovery(userId: string, date: LocalDate): Promise<EffectiveRecovery> {
   const [whoop, manual] = await Promise.all([
     prisma.whoopRecovery.findFirst({
-      where: { date, ...usableWhoopRecovery },
+      where: { userId, date, ...usableWhoopRecovery },
       select: { recoveryScore: true },
     }),
-    prisma.recoveryLog.findUnique({ where: { date }, select: { score: true } }),
+    prisma.recoveryLog.findFirst({ where: { userId, date }, select: { score: true } }),
   ]);
   if (whoop?.recoveryScore != null) {
     return { date, score: whoop.recoveryScore, band: recoveryBand(whoop.recoveryScore), source: "whoop" };
@@ -48,30 +78,45 @@ export async function getEffectiveRecovery(date: LocalDate): Promise<EffectiveRe
 }
 
 /**
- * Most recent date ≤ today with an effective score from either source.
- * WHOOP wins when both sources land on the same date.
+ * Most recent effective score from either source. The WHOOP side is the
+ * newest cycle's recovery (see latestCycleRecovery), falling back to the
+ * newest date ≤ today for sparse/stale data. WHOOP wins ties with manual;
+ * the current cycle's recovery counts as today regardless of its date
+ * bucket, so a manual log never shadows a live WHOOP score.
  */
 export async function getLatestEffectiveRecovery(
+  userId: string,
   today: LocalDate
 ): Promise<EffectiveRecovery & { isToday: boolean }> {
-  const [whoop, manual] = await Promise.all([
+  const [cycleRecovery, whoopByDate, manual] = await Promise.all([
+    latestCycleRecovery(userId),
     prisma.whoopRecovery.findFirst({
-      where: { date: { lte: today }, ...usableWhoopRecovery },
+      where: { userId, date: { lte: today }, ...usableWhoopRecovery },
       orderBy: { date: "desc" },
       select: { date: true, recoveryScore: true },
     }),
     prisma.recoveryLog.findFirst({
-      where: { date: { lte: today }, score: { not: null } },
+      where: { userId, date: { lte: today }, score: { not: null } },
       orderBy: { date: "desc" },
       select: { date: true, score: true },
     }),
   ]);
 
+  const whoop = cycleRecovery
+    ? { date: cycleRecovery.recovery.date, recoveryScore: cycleRecovery.recovery.recoveryScore }
+    : whoopByDate;
+  // The current cycle counts as "today" even when its start-day bucket says
+  // yesterday — but only when it is actually recent, so a stale sync never
+  // shadows a fresh manual check-in.
+  const whoopIsToday =
+    (cycleRecovery?.isCurrentCycle === true && cycleRecovery.recovery.date >= addDays(today, -1)) ||
+    whoop?.date === today;
   const useWhoop =
-    whoop?.recoveryScore != null && (manual?.score == null || whoop.date >= manual.date);
+    whoop?.recoveryScore != null &&
+    (manual?.score == null || whoopIsToday || whoop.date >= manual.date);
   if (useWhoop && whoop) {
     const score = whoop.recoveryScore as number;
-    return { date: whoop.date, score, band: recoveryBand(score), source: "whoop", isToday: whoop.date === today };
+    return { date: whoop.date, score, band: recoveryBand(score), source: "whoop", isToday: whoopIsToday };
   }
   if (manual?.score != null) {
     return { date: manual.date, score: manual.score, band: recoveryBand(manual.score), source: "manual", isToday: manual.date === today };
@@ -124,28 +169,29 @@ export function toCoachWhoopContext(ctx: WhoopDayContext): CoachWhoopContext | n
 }
 
 /** One-call WHOOP context bundle for the AI coaches (structured numbers only). */
-export async function getWhoopDayContext(today: LocalDate): Promise<WhoopDayContext> {
+export async function getWhoopDayContext(userId: string, today: LocalDate): Promise<WhoopDayContext> {
   const yesterday = addDays(today, -1);
   const twoDaysAgo = addDays(today, -2);
 
-  const [recoveryRow, sleepRow, yesterdayCycle, workouts] = await Promise.all([
-    prisma.whoopRecovery.findFirst({ where: { date: today, scoreState: "SCORED" } }),
+  const [cycleRecovery, sleepRow, yesterdayCycle, workouts] = await Promise.all([
+    latestCycleRecovery(userId, { scoreState: "SCORED" }),
     prisma.whoopSleep.findFirst({
-      where: { date: { in: [today, yesterday] }, isNap: false },
+      where: { userId, date: { in: [today, yesterday] }, isNap: false },
       orderBy: { end: "desc" },
     }),
     prisma.whoopCycle.findFirst({
-      where: { date: yesterday, strain: { not: null } },
+      where: { userId, date: yesterday, strain: { not: null } },
       orderBy: { start: "desc" },
       select: { strain: true },
     }),
     prisma.whoopWorkout.findMany({
-      where: { date: { gte: twoDaysAgo, lte: today } },
+      where: { userId, date: { gte: twoDaysAgo, lte: today } },
       orderBy: { start: "desc" },
       take: 5,
     }),
   ]);
 
+  const recoveryRow = cycleRecovery?.recovery ?? null;
   return {
     recovery: recoveryRow
       ? {

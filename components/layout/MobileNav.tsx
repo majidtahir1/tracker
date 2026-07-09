@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Ellipsis, X } from "lucide-react";
+import { Ellipsis, LogOut, X } from "lucide-react";
 import { MOBILE_NAV_HREFS, NAV_ITEMS } from "./nav-items";
 import { isActivePath } from "./Sidebar";
+import { authClient } from "@/lib/auth-client";
 
 const RING =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
@@ -63,6 +64,14 @@ export default function MobileNav() {
                 );
               })}
             </div>
+            <button
+              type="button"
+              onClick={() => authClient.signOut().then(() => { window.location.href = "/login"; })}
+              className={`mt-1 flex w-full items-center gap-3 rounded-sm px-3 py-3 text-sm font-medium text-text-3 hover:bg-surface hover:text-text-2 transition-colors ${RING}`}
+            >
+              <LogOut className="size-[18px] shrink-0" strokeWidth={2} />
+              Sign out
+            </button>
           </div>
         </div>
       )}

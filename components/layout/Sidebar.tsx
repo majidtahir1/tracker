@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Dumbbell } from "lucide-react";
 import { NAV_ITEMS } from "./nav-items";
+import { authClient } from "@/lib/auth-client";
 
 const RING =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
@@ -13,7 +14,7 @@ export function isActivePath(pathname: string, href: string): boolean {
 }
 
 /** Desktop sidebar (DESIGN.md §3.2). Hidden below lg. */
-export default function Sidebar() {
+export default function Sidebar({ username }: { username: string }) {
   const pathname = usePathname();
 
   return (
@@ -43,10 +44,20 @@ export default function Sidebar() {
           );
         })}
       </nav>
-      <div className="p-3 border-t border-border-faint">
+      <div className="space-y-2 p-3 border-t border-border-faint">
         <div className="rounded-sm bg-surface px-3 py-2 text-xs text-text-3">
           Block <span className="font-mono text-accent">1</span> · Week{" "}
           <span className="font-mono text-accent">1</span>
+        </div>
+        <div className="flex items-center justify-between rounded-sm px-3 py-1.5">
+          <span className="truncate text-xs font-medium text-text-2">{username}</span>
+          <button
+            type="button"
+            onClick={() => authClient.signOut().then(() => { window.location.href = "/login"; })}
+            className={`text-xs text-text-3 hover:text-text-2 ${RING}`}
+          >
+            Sign out
+          </button>
         </div>
       </div>
     </aside>

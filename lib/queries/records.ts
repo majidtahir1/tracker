@@ -2,6 +2,7 @@
  * lib/queries/records.ts — server-only read layer for /records.
  */
 import { prisma } from "@/lib/db";
+import { requireUserId } from "@/lib/session";
 import type { PrType } from "@/lib/generated/prisma/enums";
 import type { LocalDate } from "@/lib/dates";
 
@@ -41,7 +42,9 @@ export interface RecordsData {
 }
 
 export async function getRecordsData(): Promise<RecordsData> {
+  const userId = await requireUserId();
   const rows = await prisma.personalRecord.findMany({
+    where: { userId },
     orderBy: [{ date: "asc" }, { value: "asc" }],
     include: { exercise: { select: { name: true } } },
   });

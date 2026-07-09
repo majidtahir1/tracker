@@ -5,6 +5,7 @@
  */
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { WHOOP_API_BASE } from "@/lib/whoop/config";
 import { exchangeCode } from "@/lib/whoop/client";
@@ -18,6 +19,12 @@ function recoveryRedirect(request: Request, status: string): NextResponse {
 }
 
 export async function GET(request: Request) {
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+  const userId = session.user.id;
+
   const params = new URL(request.url).searchParams;
 
   const cookieStore = await cookies();
@@ -57,8 +64,8 @@ export async function GET(request: Request) {
       lastSyncError: null,
     };
     await prisma.whoopConnection.upsert({
-      where: { id: "singleton" },
-      create: { id: "singleton", ...data },
+      where: { userId },
+      create: { userId, ...data },
       update: data,
     });
   } catch {
@@ -66,7 +73,7 @@ export async function GET(request: Request) {
   }
 
   // Initial backfill — awaited so the first page load already has data.
-  await syncWhoop({ force: true });
+  await syncWhoop(userId, { force: true });
 
   return recoveryRedirect(request, "connected");
 }

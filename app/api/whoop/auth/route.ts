@@ -4,6 +4,7 @@
  */
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { auth } from "@/lib/auth";
 import {
   isWhoopConfigured,
   WHOOP_AUTHORIZE_URL,
@@ -13,6 +14,11 @@ import {
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
   if (!isWhoopConfigured()) {
     return NextResponse.redirect(new URL("/recovery?whoop=not_configured", request.url));
   }

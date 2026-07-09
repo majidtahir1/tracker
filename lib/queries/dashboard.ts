@@ -8,6 +8,7 @@
  * dedupeKey, so repeated renders never duplicate.
  */
 import { prisma } from "@/lib/db";
+import { requireUserId } from "@/lib/session";
 import {
   localToday,
   addDays,
@@ -207,19 +208,26 @@ function pctTrend(current: number, previous: number | null, goodWhenUp: boolean,
 // ---------- Main entry ----------
 
 export async function getDashboardData(): Promise<DashboardData> {
+  const userId = await requireUserId();
   const today = localToday();
   const weekStart = isoWeekMonday(today);
   const prevWeekStart = addDays(weekStart, -7);
 
-  const [block, settings, templates] = await Promise.all([
-    prisma.trainingBlock.findFirst({ orderBy: { cycleNumber: "desc" } }),
-    prisma.appSettings.findUnique({ where: { id: "singleton" } }),
-    prisma.workoutTemplate.findMany({
-      where: { isActive: true, program: { isActive: true } },
-      orderBy: { dayNumber: "asc" },
-      include: { exercises: { include: { exercise: true, blockOverrides: true }, orderBy: { sortOrder: "asc" } } },
-    }),
+  const [block, settings] = await Promise.all([
+    prisma.trainingBlock.findFirst({ where: { userId }, orderBy: { cycleNumber: "desc" } }),
+    prisma.appSettings.findUnique({ where: { userId } }),
   ]);
+
+  const activeProgram = settings?.activeProgramId
+    ? await prisma.program.findUnique({ where: { id: settings.activeProgramId } })
+    : null;
+  const templates = activeProgram
+    ? await prisma.workoutTemplate.findMany({
+        where: { isActive: true, programId: activeProgram.id },
+        orderBy: { dayNumber: "asc" },
+        include: { exercises: { include: { exercise: true, blockOverrides: true }, orderBy: { sortOrder: "asc" } } },
+      })
+    : [];
 
   const position = block
     ? { cycleNumber: block.cycleNumber, ...blockPosition(block, today) }
@@ -233,18 +241,18 @@ export async function getDashboardData(): Promise<DashboardData> {
     prsThisBlock,
   ] = await Promise.all([
     prisma.bodyMeasurement.findMany({
-      where: { weight: { not: null }, date: { gte: addDays(today, -90) } },
+      where: { userId, weight: { not: null }, date: { gte: addDays(today, -90) } },
       orderBy: { date: "asc" },
     }),
-    prisma.nutritionLog.findUnique({ where: { date: today } }),
-    getLatestEffectiveRecovery(today),
+    prisma.nutritionLog.findFirst({ where: { userId, date: today } }),
+    getLatestEffectiveRecovery(userId, today),
     prisma.workoutSession.findMany({
-      where: { status: "COMPLETED" },
+      where: { userId, status: "COMPLETED" },
       orderBy: { date: "asc" },
       select: { id: true, date: true, totalVolume: true, isDeload: true },
     }),
     block
-      ? prisma.personalRecord.count({ where: { date: { gte: block.startDate } } })
+      ? prisma.personalRecord.count({ where: { userId, date: { gte: block.startDate } } })
       : Promise.resolve(0),
   ]);
 
@@ -258,8 +266,8 @@ export async function getDashboardData(): Promise<DashboardData> {
       const template = templates[offset % templates.length];
       if (!template) continue;
       if (offset === 0) {
-        const existing = await prisma.workoutSession.findUnique({
-          where: { templateId_date: { templateId: template.id, date } },
+        const existing = await prisma.workoutSession.findFirst({
+          where: { userId, templateId: template.id, date },
           select: { status: true },
         });
         if (existing && (existing.status === "COMPLETED" || existing.status === "SKIPPED")) continue;
@@ -287,7 +295,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       const history = await prisma.sessionExercise.findMany({
         where: {
           templateExerciseId: { in: slotIds },
-          session: { status: "COMPLETED", isDeload: false },
+          session: { userId, status: "COMPLETED", isDeload: false },
         },
         orderBy: [{ session: { date: "desc" } }],
         include: { sets: true, session: { select: { date: true } } },
@@ -341,10 +349,10 @@ export async function getDashboardData(): Promise<DashboardData> {
   // ----- Notification generation (idempotent) -----
   if (block && position && settings) {
     const [photoCount, measurementCount] = await Promise.all([
-      prisma.progressPhoto.count({ where: { date: { startsWith: monthKey(today) } } }),
-      prisma.bodyMeasurement.count({ where: { date: { startsWith: monthKey(today) } } }),
+      prisma.progressPhoto.count({ where: { userId, date: { startsWith: monthKey(today) } } }),
+      prisma.bodyMeasurement.count({ where: { userId, date: { startsWith: monthKey(today) } } }),
     ]);
-    const candidates: NotificationCandidate[] = scheduleNotifications({
+    const candidates: NotificationCandidate[] = scheduleNotifications(userId, {
       today,
       blockId: block.id,
       weekInCycle: position.week,
@@ -357,7 +365,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     });
     for (const slot of increaseSlots) {
       candidates.push(
-        progressionNotification({
+        progressionNotification(userId, {
           templateExerciseId: slot.templateExerciseId,
           exerciseName: slot.exerciseName,
           newWeight: slot.newWeight,
@@ -366,17 +374,21 @@ export async function getDashboardData(): Promise<DashboardData> {
       );
     }
     for (const c of candidates) {
-      await prisma.notification.upsert({
-        where: { dedupeKey: c.dedupeKey },
-        update: {},
-        create: {
-          type: c.type,
-          title: c.title,
-          body: c.body ?? null,
-          href: c.href ?? null,
-          dedupeKey: c.dedupeKey,
-        },
+      const existingNotification = await prisma.notification.findUnique({
+        where: { userId_dedupeKey: { userId, dedupeKey: c.dedupeKey } },
       });
+      if (!existingNotification) {
+        await prisma.notification.create({
+          data: {
+            userId,
+            type: c.type,
+            title: c.title,
+            body: c.body ?? null,
+            href: c.href ?? null,
+            dedupeKey: c.dedupeKey,
+          },
+        });
+      }
     }
   }
 
@@ -447,7 +459,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   // ----- Last workout summary -----
   let lastWorkout: LastWorkoutInfo | null = null;
   const lastSession = await prisma.workoutSession.findFirst({
-    where: { status: "COMPLETED" },
+    where: { userId, status: "COMPLETED" },
     orderBy: { date: "desc" },
     include: {
       template: { select: { name: true } },
@@ -459,7 +471,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   });
   if (lastSession) {
     const sessionPrs = await prisma.personalRecord.findMany({
-      where: { date: lastSession.date },
+      where: { userId, date: lastSession.date },
       select: { type: true },
     });
     const PR_SHORT: Record<string, string> = {
@@ -505,7 +517,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       completed: true,
       weight: { gt: 0 },
       sessionExercise: {
-        session: { status: "COMPLETED" },
+        session: { userId, status: "COMPLETED" },
         exercise: { name: { in: Object.keys(BIG4) } },
       },
     },
@@ -559,7 +571,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   const weekSetLogs = await prisma.setLog.findMany({
     where: {
       completed: true,
-      sessionExercise: { session: { status: "COMPLETED", date: { gte: weekStart, lte: today } } },
+      sessionExercise: { session: { userId, status: "COMPLETED", date: { gte: weekStart, lte: today } } },
     },
     include: {
       sessionExercise: {
@@ -587,10 +599,11 @@ export async function getDashboardData(): Promise<DashboardData> {
   // ----- Notifications (top 5, unread first) -----
   const [notificationRows, unreadCount] = await Promise.all([
     prisma.notification.findMany({
+      where: { userId },
       orderBy: [{ read: "asc" }, { createdAt: "desc" }],
       take: 5,
     }),
-    prisma.notification.count({ where: { read: false } }),
+    prisma.notification.count({ where: { userId, read: false } }),
   ]);
   const notifications: DashboardNotification[] = notificationRows.map((n) => ({
     id: n.id,

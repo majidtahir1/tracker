@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { unlink } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "@/lib/db";
+import { requireUserId } from "@/lib/session";
 import { recoveryScore, isFatigued } from "@/lib/recovery";
 import { fatigueWarningNotification } from "@/lib/notifications";
 
@@ -68,6 +69,7 @@ export async function saveMeasurement(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const userId = await requireUserId();
   const date = parseDate(formData);
   if (!date) return { ok: false, error: "Pick a valid date." };
 
@@ -84,9 +86,9 @@ export async function saveMeasurement(
   data.notes = parseNotes(formData);
 
   await prisma.bodyMeasurement.upsert({
-    where: { date },
-    create: { date, ...data },
+    where: { userId_date: { userId, date } },
     update: data,
+    create: { userId, date, ...data },
   });
 
   revalidatePath("/measurements");
@@ -100,6 +102,7 @@ export async function saveNutrition(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const userId = await requireUserId();
   const date = parseDate(formData);
   if (!date) return { ok: false, error: "Pick a valid date." };
 
@@ -116,9 +119,9 @@ export async function saveNutrition(
   data.notes = parseNotes(formData);
 
   await prisma.nutritionLog.upsert({
-    where: { date },
-    create: { date, ...data },
+    where: { userId_date: { userId, date } },
     update: data,
+    create: { userId, date, ...data },
   });
 
   revalidatePath("/nutrition");
@@ -132,6 +135,7 @@ export async function saveRecovery(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const userId = await requireUserId();
   const date = parseDate(formData);
   if (!date) return { ok: false, error: "Pick a valid date." };
 
@@ -171,19 +175,20 @@ export async function saveRecovery(
   const data = { sleepHours, ...ratings, score, notes: parseNotes(formData) };
 
   await prisma.recoveryLog.upsert({
-    where: { date },
-    create: { date, ...data },
+    where: { userId_date: { userId, date } },
     update: data,
+    create: { userId, date, ...data },
   });
 
   // Low score → fatigue warning notification (idempotent via dedupeKey).
   if (isFatigued(score) && score != null) {
-    const candidate = fatigueWarningNotification(date, score);
-    await prisma.notification.upsert({
-      where: { dedupeKey: candidate.dedupeKey },
-      create: candidate,
-      update: {},
+    const candidate = fatigueWarningNotification(userId, date, score);
+    const existingNotification = await prisma.notification.findUnique({
+      where: { userId_dedupeKey: { userId, dedupeKey: candidate.dedupeKey } },
     });
+    if (!existingNotification) {
+      await prisma.notification.create({ data: candidate });
+    }
   }
 
   revalidatePath("/recovery");
@@ -194,8 +199,9 @@ export async function saveRecovery(
 // ---------------------------------------------------------------- photos
 
 export async function deletePhoto(photoId: string): Promise<ActionState> {
+  const userId = await requireUserId();
   const photo = await prisma.progressPhoto.findUnique({ where: { id: photoId } });
-  if (!photo) return { ok: false, error: "Photo not found." };
+  if (!photo || photo.userId !== userId) return { ok: false, error: "Photo not found." };
 
   await prisma.progressPhoto.delete({ where: { id: photoId } });
 

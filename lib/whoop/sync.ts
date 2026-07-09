@@ -25,9 +25,12 @@ const THROTTLE_MS = 15 * 60 * 1000; // skip syncs within 15 minutes
 const OVERLAP_MS = 48 * 60 * 60 * 1000; // re-fetch 48h back to catch re-scores
 const FIRST_SYNC_MS = 90 * 24 * 60 * 60 * 1000; // 90 days on first sync
 
-export async function syncWhoop(opts?: { force?: boolean }): Promise<SyncResult> {
+export async function syncWhoop(
+  userId: string,
+  opts?: { force?: boolean },
+): Promise<SyncResult> {
   if (!isWhoopConfigured()) return { ok: false, error: "not_configured" };
-  const connection = await getConnection();
+  const connection = await getConnection(userId);
   if (!connection) return { ok: false, error: "not_connected" };
 
   const now = new Date();
@@ -46,39 +49,57 @@ export async function syncWhoop(opts?: { force?: boolean }): Promise<SyncResult>
 
   try {
     // Cycles first — recoveries derive their date from the parent cycle's day.
-    const cycles = (await fetchCollection<WhoopCycleRecord>("/cycle", window)).map(mapCycle);
+    const cycles = (await fetchCollection<WhoopCycleRecord>(userId, "/cycle", window)).map(
+      mapCycle,
+    );
     const cycleDateById = new Map(cycles.map((c) => [c.id, c.date]));
     for (const cycle of cycles) {
       const { id, ...data } = cycle;
-      await prisma.whoopCycle.upsert({ where: { id }, create: cycle, update: data });
+      await prisma.whoopCycle.upsert({
+        where: { id },
+        create: { ...cycle, userId },
+        update: { ...data, userId },
+      });
     }
 
-    const recoveries = (await fetchCollection<WhoopRecoveryRecord>("/recovery", window)).map(
-      (record) => mapRecovery(record, cycleDateById),
-    );
+    const recoveries = (
+      await fetchCollection<WhoopRecoveryRecord>(userId, "/recovery", window)
+    ).map((record) => mapRecovery(record, cycleDateById));
     for (const recovery of recoveries) {
       const { cycleId, ...data } = recovery;
-      await prisma.whoopRecovery.upsert({ where: { cycleId }, create: recovery, update: data });
+      await prisma.whoopRecovery.upsert({
+        where: { cycleId },
+        create: { ...recovery, userId },
+        update: { ...data, userId },
+      });
     }
 
-    const sleeps = (await fetchCollection<WhoopSleepRecord>("/activity/sleep", window))
+    const sleeps = (await fetchCollection<WhoopSleepRecord>(userId, "/activity/sleep", window))
       .map(mapSleep)
       .filter((s) => s !== null);
     for (const sleep of sleeps) {
       const { id, ...data } = sleep;
-      await prisma.whoopSleep.upsert({ where: { id }, create: sleep, update: data });
+      await prisma.whoopSleep.upsert({
+        where: { id },
+        create: { ...sleep, userId },
+        update: { ...data, userId },
+      });
     }
 
-    const workouts = (await fetchCollection<WhoopWorkoutRecord>("/activity/workout", window)).map(
-      mapWorkout,
-    );
+    const workouts = (
+      await fetchCollection<WhoopWorkoutRecord>(userId, "/activity/workout", window)
+    ).map(mapWorkout);
     for (const workout of workouts) {
       const { id, ...data } = workout;
-      await prisma.whoopWorkout.upsert({ where: { id }, create: workout, update: data });
+      await prisma.whoopWorkout.upsert({
+        where: { id },
+        create: { ...workout, userId },
+        update: { ...data, userId },
+      });
     }
 
     await prisma.whoopConnection.update({
-      where: { id: "singleton" },
+      where: { id: connection.id },
       data: { lastSyncedAt: now, lastSyncError: null },
     });
 
@@ -95,7 +116,7 @@ export async function syncWhoop(opts?: { force?: boolean }): Promise<SyncResult>
     const error = err instanceof WhoopAuthError ? "reauth_required" : "sync_failed";
     // Best effort — the connection row may have been deleted mid-sync.
     await prisma.whoopConnection
-      .update({ where: { id: "singleton" }, data: { lastSyncError: error } })
+      .update({ where: { id: connection.id }, data: { lastSyncError: error } })
       .catch(() => {});
     return { ok: false, error };
   }
