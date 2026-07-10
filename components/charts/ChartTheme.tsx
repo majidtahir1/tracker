@@ -17,7 +17,7 @@ export const BAR_CATEGORY_GAP = "30%";
 export const AREA_GRADIENT_STOPS = { topOpacity: 0.18, bottomOpacity: 0 };
 
 const LIGHT_FALLBACK: Record<string, string> = {
-  "--chart-1": "#4F46E5", "--chart-2": "#0EA5E9", "--chart-3": "#DB2777",
+  "--chart-1": "#4D7C0F", "--chart-2": "#0EA5E9", "--chart-3": "#DB2777",
   "--chart-4": "#D97706", "--chart-5": "#7C3AED", "--chart-6": "#0D9488",
   "--bg": "#F7F8FA", "--text-3": "#767D86", "--text-faint": "#A3AAB2",
   "--surface-2": "#F7F8FA", "--border": "#E3E6EA", "--border-strong": "#CDD2D8",

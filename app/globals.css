@@ -78,12 +78,12 @@
   --text-3:     #767D86;
   --text-faint: #A3AAB2;
 
-  --accent:        #4F46E5;
-  --accent-hover:  #4338CA;
-  --accent-press:  #3730A3;
+  --accent:        #18181B; /* ink — chrome/primary actions stay monochrome */
+  --accent-hover:  #27272A;
+  --accent-press:  #000000;
   --accent-text:   #FFFFFF;
-  --accent-muted:  #4F46E514;
-  --accent-border: #4F46E540;
+  --accent-muted:  #18181B14; /* 8% tint — active nav bg */
+  --accent-border: #18181B40; /* 25% tint */
 
   --success:       #16A34A;
   --success-muted: #DCFCE7;
@@ -94,7 +94,7 @@
   --info:          #2563EB;
   --info-muted:    #DBEAFE;
 
-  --chart-1: #4F46E5;
+  --chart-1: #4D7C0F; /* volt/lime, deepened for legibility on white — data keeps the brand color */
   --chart-2: #0EA5E9;
   --chart-3: #DB2777;
   --chart-4: #D97706;
@@ -103,7 +103,7 @@
 
   --shadow-card-v:  0 1px 2px 0 rgb(16 24 40 / 0.06), 0 1px 3px 0 rgb(16 24 40 / 0.04);
   --shadow-raise-v: 0 8px 24px -8px rgb(16 24 40 / 0.16);
-  --shadow-pr-v:    0 0 0 1px #4F46E540, 0 0 24px -4px #4F46E559;
+  --shadow-pr-v:    0 0 0 1px #4D7C0F40, 0 0 24px -4px #4D7C0F59;
 }
 
 /* ---- Dark theme (opt-in via toggle) — values moved verbatim from the old @theme ---- */

@@ -26,8 +26,10 @@ The app currently ships an unconditional dark theme. Make **light mode the defau
 ## Decisions (from brainstorming)
 
 - **Scope:** light default **+ toggle to dark**, with persistence. (Not light-only; not system-only.)
-- **Accent in light mode:** a **distinct** accent — **deep indigo `#4F46E5`** (the lime `#A3E635`
-  fails contrast on white). Dark mode keeps its existing lime accent unchanged.
+- **Accent in light mode:** **ink monochrome + volt data** (revised 2026-07-10 — indigo read as a
+  generic "AI app" accent). Chrome/primary actions use near-black **`#18181B`**; the lime/volt
+  identity is reserved for **data** (charts), where `--chart-1` uses a deepened lime **`#4D7C0F`**
+  (pure `#A3E635` is too light on white). Dark mode keeps its existing lime accent unchanged.
 - **Chart theming:** **full** — make `ChartTheme` runtime/theme-aware and fix all scattered literals.
 - **Toggle placement:** sidebar footer (desktop) + mobile "More" sheet. (No settings page exists.)
 - **No new dependency:** hand-roll a small provider rather than add `next-themes`.
@@ -107,16 +109,19 @@ Backgrounds / borders / text:
 | `--text-3` | `#767D86` | `#666D78` |
 | `--text-faint` | `#A3AAB2` | `#43484F` |
 
-Accent (indigo) — light:
+Accent (ink monochrome) — light:
 
 | Token | Light |
 |---|---|
-| `--accent` | `#4F46E5` |
-| `--accent-hover` | `#4338CA` |
-| `--accent-press` | `#3730A3` |
+| `--accent` | `#18181B` (near-black) |
+| `--accent-hover` | `#27272A` |
+| `--accent-press` | `#000000` |
 | `--accent-text` | `#FFFFFF` (text ON accent) |
-| `--accent-muted` | `#4F46E514` (8% tint) |
-| `--accent-border` | `#4F46E540` (25% tint) |
+| `--accent-muted` | `#18181B14` (8% tint — active nav bg) |
+| `--accent-border` | `#18181B40` (25% tint) |
+
+Note: `text-accent` highlights (e.g. "Block 1 · Week 1", active nav label) become near-black in
+light mode — the intended editorial trade-off. The lime pop lives in the charts instead.
 
 Status — light (darkened bases for white-bg contrast; pale muted tints):
 
@@ -131,7 +136,7 @@ Charts — light (legible on white; series roles preserved):
 
 | Token | Light | Role |
 |---|---|---|
-| `--chart-1` | `#4F46E5` | primary (indigo) |
+| `--chart-1` | `#4D7C0F` | primary (deep volt/lime — brand data color) |
 | `--chart-2` | `#0EA5E9` | body weight (sky) |
 | `--chart-3` | `#DB2777` | push (pink) |
 | `--chart-4` | `#D97706` | pull (amber) |
@@ -144,7 +149,7 @@ Shadows — light:
 |---|---|
 | `--shadow-card` | `0 1px 2px 0 rgb(16 24 40 / 0.06), 0 1px 3px 0 rgb(16 24 40 / 0.04)` |
 | `--shadow-raise` | `0 8px 24px -8px rgb(16 24 40 / 0.16)` |
-| `--shadow-pr` | `0 0 0 1px #4F46E540, 0 0 24px -4px #4F46E559` |
+| `--shadow-pr` | `0 0 0 1px #4D7C0F40, 0 0 24px -4px #4D7C0F59` (volt/lime PR glow) |
 
 (Dark keeps its existing inset-white-highlight shadows verbatim.)
 

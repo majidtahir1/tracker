@@ -8,6 +8,12 @@
 
 **Tech Stack:** Next.js 16, React 19, Tailwind CSS v4 (CSS-first), lucide-react, Recharts. Tests: `node:test` + `node:assert` run via `tsx` (`npm test`).
 
+> **Revision (2026-07-10, post-implementation):** the light accent changed from indigo to **ink
+> monochrome + volt data**. Light `--accent`=`#18181B` (hover `#27272A`, press `#000000`, muted
+> `#18181B14`, border `#18181B40`); `--chart-1`=`#4D7C0F` (deep volt/lime); `--shadow-pr-v` uses
+> `#4D7C0F`. Applied in `app/globals.css` (`:root`) and `ChartTheme.tsx` `LIGHT_FALLBACK`. Where
+> tasks below say `#4F46E5`, use these values.
+
 ## Global Constraints
 
 - **No new npm dependencies.** Hand-roll the theme provider; do not add `next-themes`.
