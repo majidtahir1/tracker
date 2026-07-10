@@ -662,7 +662,7 @@ export default function ProgramBuilder({ aiConfigured }: { aiConfigured: boolean
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,4fr)]">
       <div className="flex flex-col gap-4 lg:sticky lg:top-6 lg:self-start">
         <Card className="flex max-h-[32rem] flex-col overflow-y-auto p-4">
           <div className="space-y-4">
@@ -699,7 +699,7 @@ export default function ProgramBuilder({ aiConfigured }: { aiConfigured: boolean
         {error && <p className="text-sm text-danger">{error}</p>}
 
         {draft && (
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
             <Button size="lg" disabled={pending} onClick={() => finalize(true)} className="flex-1">
               <Check className="size-5" strokeWidth={2} /> Save &amp; make active
             </Button>
