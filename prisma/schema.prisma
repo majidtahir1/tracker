@@ -356,7 +356,7 @@ model ProgressPhoto {
   id       String     @id @default(cuid())
   date     String // YYYY-MM-DD
   angle    PhotoAngle
-  filePath String // relative to /public, e.g. "/photos/2026-07-06-front.jpg"
+  filePath String // bare filename, stored under PHOTOS_DIR, e.g. "2026-07-06-front-ab12cd34.jpg"
   weight   Float?
   bodyFat  Float?
   notes    String?

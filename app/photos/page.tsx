@@ -68,7 +68,7 @@ export default async function PhotosPage() {
                             />
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                              src={photo.filePath}
+                              src={`/api/photos/${photo.id}`}
                               alt={`${label} — ${entry.date}`}
                               loading="lazy"
                               className="aspect-[3/4] w-full rounded-sm border border-border object-cover"

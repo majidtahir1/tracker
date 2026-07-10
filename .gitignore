@@ -55,3 +55,6 @@ next-env.d.ts
 # production docker bind-mount volumes (DB + photos live here on the host)
 /data/
 /photos/
+
+# private progress-photo storage (dev)
+/var/
