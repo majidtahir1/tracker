@@ -7,6 +7,7 @@ import { Ellipsis, LogOut, X } from "lucide-react";
 import { MOBILE_NAV_HREFS, NAV_ITEMS } from "./nav-items";
 import { isActivePath } from "./Sidebar";
 import { authClient } from "@/lib/auth-client";
+import ThemeToggle from "@/components/theme/ThemeToggle";
 
 const RING =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
@@ -63,6 +64,9 @@ export default function MobileNav() {
                   </Link>
                 );
               })}
+            </div>
+            <div className="px-3 py-2">
+              <ThemeToggle />
             </div>
             <button
               type="button"
