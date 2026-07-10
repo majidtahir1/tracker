@@ -1,3 +1,4 @@
+import { Sparkles } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -12,7 +13,8 @@ export const dynamic = "force-dynamic";
 export default async function ProgramsPage() {
   const { programs, activeProgramId } = await getPrograms();
   return <div className="space-y-8">
-    <PageHeader title="Programs" subtitle="Choose a program and manage its ordered training days." />
+    <PageHeader title="Programs" subtitle="Choose a program and manage its ordered training days."
+      actions={<ButtonLink href="/programs/new"><Sparkles className="size-4" strokeWidth={2} /> AI Program Builder</ButtonLink>} />
     <Card className="p-5"><form action={createProgram} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
       <Input name="name" placeholder="Program name" required />
       <Input name="description" placeholder="Description (optional)" />
