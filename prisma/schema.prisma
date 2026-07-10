@@ -443,6 +443,21 @@ model Notification {
   @@index([userId])
 }
 
+// Device tokens for APNs push delivery (iOS app via Capacitor). Dormant
+// scaffold: rows are written once the client registers, but nothing pushes
+// until APNs env vars are configured (see lib/push/apns.ts).
+model PushToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  platform  String
+  userId    String
+  user      User     @relation("PushTokenUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
 // One cached AI dashboard reflection per completed workout.
 
 model CoachBrief {
@@ -634,6 +649,7 @@ model User {
   recoveryLogs       RecoveryLog[]       @relation("RecoveryLogUser")
   goals              Goal[]              @relation("GoalUser")
   notifications      Notification[]      @relation("NotificationUser")
+  pushTokens         PushToken[]         @relation("PushTokenUser")
   coachBriefs        CoachBrief[]        @relation("CoachBriefUser")
   dailyBriefs        DailyBrief[]        @relation("DailyBriefUser")
   substitutionEvents SubstitutionEvent[] @relation("SubstitutionEventUser")

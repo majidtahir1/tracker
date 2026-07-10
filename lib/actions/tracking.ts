@@ -12,6 +12,7 @@ import { requireUserId } from "@/lib/session";
 import { recoveryScore, isFatigued } from "@/lib/recovery";
 import { NOTIFICATIONS_ENABLED, fatigueWarningNotification } from "@/lib/notifications";
 import { resolveSafe } from "@/lib/photos-storage";
+import { sendPushToUser } from "@/lib/push/apns";
 
 export interface ActionState {
   ok: boolean;
@@ -188,6 +189,10 @@ export async function saveRecovery(
     });
     if (!existingNotification) {
       await prisma.notification.create({ data: candidate });
+      // Push delivery, if APNs is configured (see lib/push/apns.ts) — a
+      // no-op otherwise. Other notification-creation sites can call
+      // sendPushToUser the same way once they're ready to fan out to iOS.
+      await sendPushToUser(userId, { title: candidate.title, body: candidate.body, href: candidate.href });
     }
   }
 
