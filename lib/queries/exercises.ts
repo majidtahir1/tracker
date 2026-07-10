@@ -257,7 +257,6 @@ export async function getExerciseDetail(id: string): Promise<ExerciseDetail | nu
         priorTargetSets: prior?.targetSets ?? slot.baseSets,
       },
       weightIncrement: exercise.weightIncrement,
-      latestRecoveryScore: latestRecovery.score,
     });
 
     const lastWeight = prior

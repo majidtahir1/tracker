@@ -122,6 +122,13 @@ export default async function WorkoutPage({
                 </span>
                 <span className="tabular-nums">{next.totalSets} working sets</span>
               </p>
+              {next.lowRecovery && !next.isDeload && (
+                <p className="mt-3 max-w-xl rounded-sm border border-warning/30 bg-warning/10 px-3 py-2 text-xs leading-relaxed text-text-2">
+                  Recovery is low today. Weight targets below are based purely on your last
+                  performance — if you feel tired or low on energy, it&apos;s smart to drop a set
+                  or take ~10% off, but that call is yours.
+                </p>
+              )}
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {next.exercises
                   .filter((e) => e.recommendation === "INCREASE" && e.weight != null)

@@ -317,7 +317,6 @@ export async function getDashboardData(): Promise<DashboardData> {
               priorTargetSets: prior.targetSets,
             },
             weightIncrement: slot.exercise.weightIncrement,
-            latestRecoveryScore: latestRecovery.score,
           });
           if (result.rec === "INCREASE" && result.weight != null) {
             badges.push({ exerciseName: slot.exercise.name, deltaLb: slot.exercise.weightIncrement });

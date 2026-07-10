@@ -89,7 +89,7 @@ export async function planSlot(
   slot: SlotWithExercise,
   phase: number,
   isDeload: boolean,
-  ctx: { deloadPct: number; latestRecoveryScore: number | null; beforeDate?: LocalDate }
+  ctx: { deloadPct: number; beforeDate?: LocalDate }
 ): Promise<SlotPlan> {
   const userId = await requireUserId();
   const targets = resolveTargets(slot, slot.blockOverrides, phase, isDeload);
@@ -137,7 +137,6 @@ export async function planSlot(
         priorTargetSets: prior[0]?.targetSets ?? targets.sets,
       },
       weightIncrement: slot.exercise.weightIncrement,
-      latestRecoveryScore: ctx.latestRecoveryScore,
     });
   }
 
@@ -177,6 +176,8 @@ export interface NextWorkoutPreview {
   isToday: boolean;
   /** True when the user picked this workout instead of the rotation suggestion. */
   isOverride: boolean;
+  /** Effective recovery score under 40 — advisory only, never changes weights. */
+  lowRecovery: boolean;
   week: number;
   phase: number;
   isDeload: boolean;
@@ -386,7 +387,6 @@ export async function getWorkoutOverview(overrideTemplateId?: string): Promise<W
     for (const slot of template.exercises) {
       const plan = await planSlot(slot, phase, isDeload, {
         deloadPct,
-        latestRecoveryScore,
         beforeDate: date,
       });
       exercises.push({
@@ -417,6 +417,7 @@ export async function getWorkoutOverview(overrideTemplateId?: string): Promise<W
       dateLabel: fmtDisplay(date),
       isToday: true,
       isOverride,
+      lowRecovery: latestRecoveryScore != null && latestRecoveryScore < 40,
       week: w,
       phase,
       isDeload,

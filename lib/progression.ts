@@ -35,8 +35,6 @@ export interface ProgressionInput {
   previousSets?: PriorSet[] | null;
   targets: SlotTargets;
   weightIncrement: number;
-  /** Latest RecoveryLog.score, if any. */
-  latestRecoveryScore?: number | null;
 }
 
 export interface ProgressionResult {
@@ -71,7 +69,7 @@ function avgRir(sets: PriorSet[]): number | null {
 
 /** Double-progression recommendation for a normal (non-deload) session. */
 export function recommendProgression(input: ProgressionInput): ProgressionResult {
-  const { priorSets, previousSets, targets, weightIncrement, latestRecoveryScore } = input;
+  const { priorSets, previousSets, targets, weightIncrement } = input;
 
   if (!priorSets || priorSets.length === 0) {
     return { rec: "FIRST_TIME", weight: null };
@@ -95,10 +93,9 @@ export function recommendProgression(input: ProgressionInput): ProgressionResult
     };
   }
 
-  // REDUCE: low recovery, or two straight sessions with zero rep progress at
-  // weight W and average RIR of 0 (grinding).
-  const lowRecovery = latestRecoveryScore != null && latestRecoveryScore < 40;
-
+  // REDUCE: two straight sessions with zero rep progress at weight W and
+  // average RIR of 0 (grinding). Recovery scores never change the number —
+  // they surface as an advisory note only (user decision 2026-07-10).
   let stalled = false;
   if (previousSets && previousSets.length > 0) {
     const priorReps = totalRepsAtWeight(priorSets, w);
@@ -112,7 +109,7 @@ export function recommendProgression(input: ProgressionInput): ProgressionResult
       prevAvg === 0;
   }
 
-  if (lowRecovery || stalled) {
+  if (stalled) {
     return { rec: "REDUCE", weight: roundIncrement(w * 0.9, weightIncrement) };
   }
 

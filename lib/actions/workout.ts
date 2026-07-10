@@ -100,7 +100,6 @@ export async function startWorkout(formData: FormData): Promise<void> {
   const phase = blockPhase(week);
   const isDeload = isDeloadWeek(week);
   const deloadPct = await getDeloadPct();
-  const latestRecoveryScore = await getLatestRecoveryScore();
 
   // Snapshot resolved targets + progression recommendations per slot.
   const slotData: {
@@ -119,7 +118,6 @@ export async function startWorkout(formData: FormData): Promise<void> {
   for (const slot of template.exercises) {
     const plan = await planSlot(slot, phase, isDeload, {
       deloadPct,
-      latestRecoveryScore,
       beforeDate: date,
     });
     slotData.push({
