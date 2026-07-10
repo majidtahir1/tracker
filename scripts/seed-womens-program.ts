@@ -18,7 +18,7 @@ import type {
 const PROGRAM_NAME = "Women's Beginner Hypertrophy";
 const PROGRAM_DESCRIPTION =
   "4-day upper/lower split for beginners (garage gym). Glute and shoulder emphasis, " +
-  "double progression, 2-3 RIR weeks 1-4 then 1-2 RIR, deload week 13.";
+  "4 exercises per day, double progression, 2-3 RIR weeks 1-4 then 1-2 RIR, deload week 13.";
 
 const REST_BY_TYPE: Record<ExerciseType, number> = {
   HEAVY_COMPOUND: 150,
@@ -94,11 +94,8 @@ const TEMPLATES: TemplateSeed[] = [
     slots: [
       { exercise: "Seated Dumbbell Shoulder Press", sets: 3, repMin: 8, repMax: 10, priority: "HIGH" },
       { exercise: "Lat Pulldown", sets: 3, repMin: 10, repMax: 12, priority: "HIGH" },
-      { exercise: "Incline Dumbbell Press", sets: 2, repMin: 10, repMax: 12 },
       { exercise: "Chest Supported Dumbbell Row", sets: 3, repMin: 10, repMax: 12 },
       { exercise: "Cable Lateral Raise", sets: 3, repMin: 12, repMax: 15, priority: "HIGHEST" },
-      { exercise: "Rope Pushdown", sets: 2, repMin: 12, repMax: 15 },
-      { exercise: "Dumbbell Curl", sets: 2, repMin: 12, repMax: 15 },
     ],
   },
   {
@@ -110,8 +107,6 @@ const TEMPLATES: TemplateSeed[] = [
       { exercise: "Dumbbell Romanian Deadlift", sets: 3, repMin: 10, repMax: 12, priority: "HIGH" },
       { exercise: "Dumbbell Hip Thrust", sets: 3, repMin: 12, repMax: 15, priority: "HIGHEST" },
       { exercise: "Step-ups", sets: 3, repMin: 10, repMax: 10, isPerSide: true, notes: "10 each leg" },
-      { exercise: "Standing Calf Raise", sets: 3, repMin: 12, repMax: 15 },
-      { exercise: "Cable Crunch", sets: 2, repMin: 15, repMax: 15 },
     ],
   },
   {
@@ -123,9 +118,6 @@ const TEMPLATES: TemplateSeed[] = [
       { exercise: "Chest Supported Dumbbell Row", sets: 3, repMin: 10, repMax: 12, priority: "HIGH" },
       { exercise: "Arnold Press", sets: 3, repMin: 10, repMax: 12 },
       { exercise: "Rear Delt Fly", sets: 3, repMin: 12, repMax: 15 },
-      { exercise: "Cable Lateral Raise", sets: 3, repMin: 12, repMax: 15, priority: "HIGHEST" },
-      { exercise: "Face Pull", sets: 2, repMin: 12, repMax: 15 },
-      { exercise: "Hammer Curl", sets: 2, repMin: 12, repMax: 15 },
     ],
   },
   {
@@ -137,9 +129,6 @@ const TEMPLATES: TemplateSeed[] = [
       { exercise: "Dumbbell Hip Thrust", sets: 3, repMin: 12, repMax: 15, priority: "HIGHEST" },
       { exercise: "Reverse Lunges", sets: 3, repMin: 10, repMax: 10, isPerSide: true, notes: "10 each leg" },
       { exercise: "Cable Kickbacks", sets: 3, repMin: 12, repMax: 15 },
-      { exercise: "Cable Leg Curl", sets: 3, repMin: 12, repMax: 15, notes: "Cable hamstring curl (ankle strap)" },
-      { exercise: "Seated Dumbbell Calf Raise", sets: 3, repMin: 12, repMax: 15 },
-      { exercise: "Dead Bug", sets: 2, repMin: 12, repMax: 12, isPerSide: true, notes: "12 each side" },
     ],
   },
 ];
@@ -163,7 +152,6 @@ const BLOCK3_ADD_SET: Array<[number, string, number]> = [
   [2, "Dumbbell Romanian Deadlift", 1],
   [4, "Cable Kickbacks", 1],
   [1, "Cable Lateral Raise", 1],
-  [3, "Cable Lateral Raise", 1],
   [3, "Rear Delt Fly", 1],
 ];
 
