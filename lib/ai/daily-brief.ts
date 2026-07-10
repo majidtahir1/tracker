@@ -9,7 +9,7 @@
 import { prisma } from "@/lib/db";
 import { addDays, fmtDisplay, type LocalDate } from "@/lib/dates";
 import { recoveryBand, type RecoveryBand } from "@/lib/recovery";
-import { isDeloadWeek, weekInCycle } from "@/lib/schedule";
+import { isDeloadWeek, nextTemplateIndex, weekInCycle } from "@/lib/schedule";
 import { getWhoopDayContext } from "@/lib/queries/effective-recovery";
 import { callMiniMax, clip, type CoachBriefData } from "./dashboard-coach";
 
@@ -129,7 +129,7 @@ async function resolveTodayWorkout(
   if (!settings?.activeProgramId) return null;
   const templates = await prisma.workoutTemplate.findMany({
     where: { programId: settings.activeProgramId, isActive: true },
-    orderBy: { sortOrder: "asc" },
+    orderBy: [{ dayNumber: "asc" }, { sortOrder: "asc" }],
     select: { id: true, name: true },
   });
   if (templates.length === 0) return null;
@@ -138,8 +138,7 @@ async function resolveTodayWorkout(
     orderBy: [{ date: "desc" }, { completedAt: "desc" }],
     select: { templateId: true },
   });
-  const lastIdx = lastCompleted ? templates.findIndex((t) => t.id === lastCompleted.templateId) : -1;
-  const next = templates[(lastIdx + 1) % templates.length];
+  const next = templates[nextTemplateIndex(templates, lastCompleted?.templateId)];
   return { name: next.name, inProgress: false, completed: false };
 }
 

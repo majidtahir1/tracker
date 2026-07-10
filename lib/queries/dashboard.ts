@@ -18,7 +18,7 @@ import {
   fmtDisplay,
   type LocalDate,
 } from "@/lib/dates";
-import { blockPosition } from "@/lib/schedule";
+import { blockPosition, nextTemplateIndex } from "@/lib/schedule";
 import { epleyDisplay } from "@/lib/e1rm";
 import {
   weeklySetsByMuscle,
@@ -224,7 +224,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   const templates = activeProgram
     ? await prisma.workoutTemplate.findMany({
         where: { isActive: true, programId: activeProgram.id },
-        orderBy: { dayNumber: "asc" },
+        orderBy: [{ dayNumber: "asc" }, { sortOrder: "asc" }],
         include: { exercises: { include: { exercise: true, blockOverrides: true }, orderBy: { sortOrder: "asc" } } },
       })
     : [];
@@ -261,18 +261,16 @@ export async function getDashboardData(): Promise<DashboardData> {
   const increaseSlots: Array<{ templateExerciseId: string; exerciseName: string; newWeight: number; date: LocalDate }> = [];
 
   if (templates.length > 0 && block) {
-    for (let offset = 0; offset <= 7; offset++) {
-      const date = addDays(today, offset);
-      const template = templates[offset % templates.length];
-      if (!template) continue;
-      if (offset === 0) {
-        const existing = await prisma.workoutSession.findFirst({
-          where: { userId, templateId: template.id, date },
-          select: { status: true },
-        });
-        if (existing && (existing.status === "COMPLETED" || existing.status === "SKIPPED")) continue;
-      }
-
+    // Same rotation rule as the workout page and morning brief: the next
+    // template after the most recently completed session, shown for today.
+    const lastCompleted = await prisma.workoutSession.findFirst({
+      where: { userId, status: "COMPLETED", template: { programId: activeProgram?.id } },
+      orderBy: [{ date: "desc" }, { completedAt: "desc" }],
+      select: { templateId: true },
+    });
+    const template = templates[nextTemplateIndex(templates, lastCompleted?.templateId)];
+    if (template) {
+      const date = today;
       const pos = blockPosition(block, date);
       const phase = pos.phase;
       const isDeload = pos.isDeload;
@@ -336,13 +334,12 @@ export async function getDashboardData(): Promise<DashboardData> {
       nextWorkout = {
         templateName: template.name,
         date,
-        dateLabel: offset === 0 ? "Today" : fmtDisplay(date),
+        dateLabel: "Today",
         exerciseCount: template.exercises.length,
         estMinutes,
         isDeload,
         progressionBadges: badges.slice(0, 3),
       };
-      break;
     }
   }
 

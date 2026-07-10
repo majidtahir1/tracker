@@ -17,6 +17,7 @@ import {
 import {
   blockPhase,
   isDeloadWeek,
+  nextTemplateIndex,
   resolveTargets,
   weekInCycle,
   type ResolvedTargets,
@@ -342,9 +343,9 @@ export async function getWorkoutOverview(): Promise<WorkoutOverview> {
   const lastCompleted = await prisma.workoutSession.findFirst({
     where: { userId, status: "COMPLETED", template: { programId: activeProgram?.id } },
     orderBy: [{ date: "desc" }, { completedAt: "desc" }],
-    select: { template: { select: { dayNumber: true } } },
+    select: { templateId: true },
   });
-  const template = templates.find((t) => t.dayNumber > (lastCompleted?.template.dayNumber ?? 0)) ?? templates[0];
+  const template = templates[nextTemplateIndex(templates, lastCompleted?.templateId)];
   if (template) {
     const date = today;
 

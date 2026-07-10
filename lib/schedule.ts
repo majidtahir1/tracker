@@ -110,3 +110,20 @@ export function blockPosition(block: BlockLike, today: LocalDate): {
     deloadInDays: deloadCountdownDays(block, today),
   };
 }
+
+/**
+ * THE next-workout rule: rotate through the active program's ordered days,
+ * advancing past the most recently completed session's template. Calendar
+ * days never determine the workout. Every "next workout" surface (dashboard,
+ * workout page, morning brief) must resolve through this.
+ */
+export function nextTemplateIndex(
+  templates: Array<{ id: string }>,
+  lastCompletedTemplateId: string | null | undefined
+): number {
+  if (templates.length === 0) return -1;
+  const idx = lastCompletedTemplateId
+    ? templates.findIndex((t) => t.id === lastCompletedTemplateId)
+    : -1;
+  return (idx + 1) % templates.length;
+}
