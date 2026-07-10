@@ -16,14 +16,10 @@ import {
   YAxis,
 } from "recharts";
 import {
-  AXIS_PROPS,
   BAR_CATEGORY_GAP,
-  barProps,
-  CHART_COLORS,
   CHART_MARGIN,
   ChartTooltip,
-  GRID_PROPS,
-  lineProps,
+  useChartTheme,
 } from "@/components/charts/ChartTheme";
 
 export default function WhoopSleepChart({
@@ -31,6 +27,7 @@ export default function WhoopSleepChart({
 }: {
   data: { label: string; hours: number; performancePct: number | null }[];
 }) {
+  const ct = useChartTheme();
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart
@@ -38,13 +35,13 @@ export default function WhoopSleepChart({
         margin={{ ...CHART_MARGIN, right: 4 }}
         barCategoryGap={BAR_CATEGORY_GAP}
       >
-        <CartesianGrid {...GRID_PROPS} />
-        <XAxis dataKey="label" {...AXIS_PROPS} />
-        <YAxis yAxisId="hours" {...AXIS_PROPS} width={30} tickCount={4} />
+        <CartesianGrid {...ct.gridProps} />
+        <XAxis dataKey="label" {...ct.axisProps} />
+        <YAxis yAxisId="hours" {...ct.axisProps} width={30} tickCount={4} />
         <YAxis
           yAxisId="pct"
           orientation="right"
-          {...AXIS_PROPS}
+          {...ct.axisProps}
           width={30}
           domain={[0, 100]}
           tickCount={4}
@@ -53,13 +50,13 @@ export default function WhoopSleepChart({
           content={
             <ChartTooltip formatter={(v, name) => (name === "Sleep" ? `${v} hr` : `${v}%`)} />
           }
-          cursor={{ fill: "#1D2025", opacity: 0.5 }}
+          cursor={{ fill: ct.surface2, opacity: 0.5 }}
         />
         <Bar
           yAxisId="hours"
           dataKey="hours"
           name="Sleep"
-          {...barProps(CHART_COLORS.indigo)}
+          {...ct.barProps(ct.colors.indigo)}
           fillOpacity={0.8}
         />
         <Line
@@ -67,7 +64,7 @@ export default function WhoopSleepChart({
           dataKey="performancePct"
           name="Performance"
           connectNulls
-          {...lineProps(CHART_COLORS.sky)}
+          {...ct.lineProps(ct.colors.sky)}
         />
       </ComposedChart>
     </ResponsiveContainer>

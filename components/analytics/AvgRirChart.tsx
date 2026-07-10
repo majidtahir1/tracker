@@ -11,23 +11,20 @@ import {
   YAxis,
 } from "recharts";
 import {
-  AXIS_PROPS,
-  CHART_COLORS,
   CHART_MARGIN,
   ChartTooltip,
-  GRID_PROPS,
-  lineProps,
-  TOOLTIP_CURSOR,
+  useChartTheme,
 } from "@/components/charts/ChartTheme";
 
 export default function AvgRirChart({ data }: { data: { week: string; avgRir: number }[] }) {
+  const ct = useChartTheme();
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data} margin={CHART_MARGIN}>
-        <CartesianGrid {...GRID_PROPS} />
-        <XAxis dataKey="week" {...AXIS_PROPS} />
+        <CartesianGrid {...ct.gridProps} />
+        <XAxis dataKey="week" {...ct.axisProps} />
         <YAxis
-          {...AXIS_PROPS}
+          {...ct.axisProps}
           width={30}
           tickCount={4}
           domain={[0, 3]}
@@ -35,9 +32,9 @@ export default function AvgRirChart({ data }: { data: { week: string; avgRir: nu
         />
         <Tooltip
           content={<ChartTooltip formatter={(v) => `${v} RIR avg`} />}
-          cursor={TOOLTIP_CURSOR}
+          cursor={ct.tooltipCursor}
         />
-        <Line dataKey="avgRir" name="Avg RIR" {...lineProps(CHART_COLORS.teal)} />
+        <Line dataKey="avgRir" name="Avg RIR" {...ct.lineProps(ct.colors.teal)} />
       </LineChart>
     </ResponsiveContainer>
   );

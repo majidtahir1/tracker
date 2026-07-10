@@ -22,8 +22,12 @@ import { getAnalyticsData, parseAnalyticsRange, VOLUME_REGIONS } from "@/lib/que
 export const metadata = { title: "Analytics" };
 export const dynamic = "force-dynamic";
 
-/** Big-four series colors: chart-1/3/4/5 per DESIGN.md §4.1. */
-const BIG_FOUR_COLORS = ["#A3E635", "#F472B6", "#FBBF24", "#818CF8"];
+/**
+ * Big-four series colors: chart-1/3/4/5 per DESIGN.md §4.1. Passed as CSS
+ * var names (not literal hex) since this is a server component — E1rmChart
+ * (a client component) resolves them to the active theme's literal colors.
+ */
+const BIG_FOUR_COLORS = ["--color-chart-1", "--color-chart-3", "--color-chart-4", "--color-chart-5"];
 
 const VOLUME_LEGEND = [
   { label: "Chest", colorVar: "--color-chart-3" },
@@ -73,7 +77,7 @@ export default async function AnalyticsPage({
         {data.bigFour.map((lift, i) => (
           <ChartCard key={lift.name} title={`${lift.name} — e1RM`} height="h-80">
             {lift.series.length >= 2 ? (
-              <E1rmChart series={lift.series} color={BIG_FOUR_COLORS[i]} />
+              <E1rmChart series={lift.series} colorVar={BIG_FOUR_COLORS[i]} />
             ) : (
               chartEmpty(
                 lift.series.length === 1

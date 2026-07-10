@@ -15,26 +15,12 @@ import {
   YAxis,
 } from "recharts";
 import {
-  AXIS_PROPS,
   BAR_CATEGORY_GAP,
-  CHART_COLORS,
   CHART_MARGIN,
   ChartTooltip,
-  GRID_PROPS,
-  TARGET_LINE_PROPS,
-  Y_AXIS_PROPS,
+  useChartTheme,
 } from "@/components/charts/ChartTheme";
 import type { WeeklyRegionRow } from "@/lib/queries/analytics";
-
-/** Region → chart color (chest/push pink, back/pull amber, legs indigo, arms teal). */
-export const REGION_COLORS: Record<string, string> = {
-  Chest: CHART_COLORS.pink,
-  Back: CHART_COLORS.amber,
-  Shoulders: CHART_COLORS.sky,
-  Arms: CHART_COLORS.teal,
-  Legs: CHART_COLORS.indigo,
-  Core: CHART_COLORS.volt,
-};
 
 const REGIONS = ["Chest", "Back", "Shoulders", "Arms", "Legs", "Core"] as const;
 
@@ -45,15 +31,25 @@ export default function WeeklyMuscleVolumeChart({
   data: WeeklyRegionRow[];
   targetTotal: number;
 }) {
+  const ct = useChartTheme();
+  /** Region → chart color (chest/push pink, back/pull amber, legs indigo, arms teal). */
+  const REGION_COLORS: Record<string, string> = {
+    Chest: ct.colors.pink,
+    Back: ct.colors.amber,
+    Shoulders: ct.colors.sky,
+    Arms: ct.colors.teal,
+    Legs: ct.colors.indigo,
+    Core: ct.colors.volt,
+  };
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} margin={CHART_MARGIN} barCategoryGap={BAR_CATEGORY_GAP}>
-        <CartesianGrid {...GRID_PROPS} />
-        <XAxis dataKey="week" {...AXIS_PROPS} />
-        <YAxis {...Y_AXIS_PROPS} width={36} />
+        <CartesianGrid {...ct.gridProps} />
+        <XAxis dataKey="week" {...ct.axisProps} />
+        <YAxis {...ct.yAxisProps} width={36} />
         <Tooltip
           content={<ChartTooltip formatter={(v) => `${v} sets`} />}
-          cursor={{ fill: "#1D2025", opacity: 0.5 }}
+          cursor={{ fill: ct.surface2, opacity: 0.5 }}
         />
         {REGIONS.map((region, i) => (
           <Bar
@@ -66,8 +62,8 @@ export default function WeeklyMuscleVolumeChart({
         ))}
         <ReferenceLine
           y={targetTotal}
-          {...TARGET_LINE_PROPS}
-          label={{ value: "target", position: "insideTopRight", fill: "#666D78", fontSize: 11 }}
+          {...ct.targetLineProps}
+          label={{ value: "target", position: "insideTopRight", fill: ct.axisText, fontSize: 11 }}
         />
       </BarChart>
     </ResponsiveContainer>
