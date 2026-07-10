@@ -120,14 +120,20 @@ function thinkingSteps(intake: BuilderIntake, refining: boolean): string[] {
 function CoachThinking({ intake, refining }: { intake: BuilderIntake; refining: boolean }) {
   const [steps] = useState(() => thinkingSteps(intake, refining));
   const [index, setIndex] = useState(0);
+  const [seconds, setSeconds] = useState(0);
   useEffect(() => {
-    const timer = setInterval(
+    const stepTimer = setInterval(
       () => setIndex((i) => Math.min(i + 1, steps.length - 1)),
       refining ? 4000 : 3200,
     );
-    return () => clearInterval(timer);
+    const clock = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => {
+      clearInterval(stepTimer);
+      clearInterval(clock);
+    };
   }, [steps.length, refining]);
 
+  const exhausted = index >= steps.length - 1;
   return (
     <div className="space-y-2" aria-live="polite">
       {steps.slice(0, index + 1).map((step, i) => (
@@ -140,6 +146,12 @@ function CoachThinking({ intake, refining }: { intake: BuilderIntake; refining: 
           <span className={i < index ? "text-text-3" : "text-text"}>{step}</span>
         </div>
       ))}
+      {exhausted && seconds > (refining ? 25 : 40) && (
+        <p className="pl-6.5 text-xs text-text-3">
+          Still working — {seconds}s in. Long drafts occasionally take a couple of minutes; it
+          will stop and tell you if something went wrong.
+        </p>
+      )}
     </div>
   );
 }
@@ -440,7 +452,13 @@ export default function ProgramBuilder({ aiConfigured }: { aiConfigured: boolean
   function submitTurn(userMessage: string | null) {
     setError(null);
     startTransition(async () => {
-      const result = await runBuilderTurn({ intake: intake(), history, userMessage });
+      let result: Awaited<ReturnType<typeof runBuilderTurn>>;
+      try {
+        result = await runBuilderTurn({ intake: intake(), history, userMessage });
+      } catch {
+        setError("Lost the connection while generating (was the server restarted?). Try again.");
+        return;
+      }
       if (!result.ok) {
         setError(result.error);
         return;
@@ -486,10 +504,16 @@ export default function ProgramBuilder({ aiConfigured }: { aiConfigured: boolean
     }
     setError(null);
     startTransition(async () => {
-      const result = await finalizeDraftProgram(draft, {
-        activate,
-        beginner: experience === "BEGINNER",
-      });
+      let result: Awaited<ReturnType<typeof finalizeDraftProgram>>;
+      try {
+        result = await finalizeDraftProgram(draft, {
+          activate,
+          beginner: experience === "BEGINNER",
+        });
+      } catch {
+        setError("Lost the connection while saving. Your draft is still here — try again.");
+        return;
+      }
       if (!result.ok) {
         setError(result.error);
         return;

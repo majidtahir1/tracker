@@ -302,10 +302,14 @@ async function callMiniMax(messages: MiniMaxMessage[]): Promise<string | null> {
   }
 }
 
-/** callMiniMax with one retry on transport failure (resets, rate limits). */
-async function callMiniMaxWithRetry(messages: MiniMaxMessage[]): Promise<string | null> {
+/** callMiniMax with one retry on transport failure, if the budget allows. */
+async function callMiniMaxWithRetry(
+  messages: MiniMaxMessage[],
+  deadline: number,
+): Promise<string | null> {
   const first = await callMiniMax(messages);
   if (first != null) return first;
+  if (Date.now() > deadline) return null;
   await new Promise((r) => setTimeout(r, 3000));
   return callMiniMax(messages);
 }
@@ -340,8 +344,13 @@ export async function requestProgramDraft(
     ...history.map((t) => ({ role: t.role, content: t.content }) as MiniMaxMessage),
   ];
 
+  // Hard cap on the whole turn: a hung call plus retries must never leave the
+  // user staring at a spinner for 10 minutes. Past the deadline we fail fast.
+  const deadline = Date.now() + 240000;
+
   let lastErrors: string[] = [];
   for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0 && Date.now() > deadline) break;
     const messages =
       attempt === 0
         ? base
@@ -352,7 +361,7 @@ export async function requestProgramDraft(
               content: `Your previous JSON failed validation:\n- ${lastErrors.join("\n- ")}\nReturn the corrected COMPLETE JSON only.`,
             },
           ];
-    const content = await callMiniMaxWithRetry(messages);
+    const content = await callMiniMaxWithRetry(messages, deadline);
     if (content == null) return { error: "The AI service is unavailable right now — try again in a minute." };
     const parsed = parseModelJson(content);
     if (!parsed) {
