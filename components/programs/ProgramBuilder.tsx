@@ -404,7 +404,7 @@ export default function ProgramBuilder({ aiConfigured }: { aiConfigured: boolean
               turn.role === "assistant" ? (
                 <div key={i} className="flex gap-2.5">
                   <Bot className="mt-0.5 size-4 shrink-0 text-accent" strokeWidth={2} />
-                  <p className="text-sm leading-relaxed text-text">{turn.text}</p>
+                  <p className="whitespace-pre-line text-sm leading-relaxed text-text">{turn.text}</p>
                 </div>
               ) : (
                 <p key={i} className="ml-auto max-w-[85%] rounded-sm bg-surface-2 px-3 py-2 text-sm text-text">

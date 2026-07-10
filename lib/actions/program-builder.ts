@@ -7,7 +7,7 @@
  */
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireUserId } from "@/lib/session";
+import { requireUser, requireUserId } from "@/lib/session";
 import {
   computeVolume,
   intakePrompt,
@@ -64,12 +64,14 @@ export async function runBuilderTurn(input: {
   history: ChatTurn[];
   userMessage: string | null;
 }): Promise<BuilderResult> {
-  await requireUserId();
+  const user = await requireUser();
   const { list, byName } = await loadCatalog();
 
   const history: ChatTurn[] = [...input.history];
   if (history.length === 0) {
-    history.push({ role: "user", content: intakePrompt(input.intake, list) });
+    // Display name over login handle: "Majid" reads better than "majidt".
+    const athleteName = (user.name || user.username || "athlete").trim();
+    history.push({ role: "user", content: intakePrompt(input.intake, list, athleteName) });
   } else if (input.userMessage && input.userMessage.trim()) {
     history.push({ role: "user", content: input.userMessage.trim().slice(0, 2000) });
   } else {

@@ -12,7 +12,7 @@ export default async function NewProgramPage() {
     <div className="space-y-8">
       <PageHeader
         title="AI Program Builder"
-        subtitle="Answer a few questions, get a draft program, then refine it in chat until it fits."
+        subtitle="Answer a few questions and Mo, your AI strength coach, drafts a program — then refine it in chat until it fits."
       />
       <ProgramBuilder aiConfigured={aiConfigured} />
     </div>

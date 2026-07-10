@@ -219,9 +219,14 @@ export function catalogPromptLines(catalog: CatalogExercise[]): string {
     .join("\n");
 }
 
-export function intakePrompt(intake: BuilderIntake, catalog: CatalogExercise[]): string {
+export function intakePrompt(
+  intake: BuilderIntake,
+  catalog: CatalogExercise[],
+  athleteName: string,
+): string {
   return [
     "ATHLETE INTAKE",
+    `name: ${athleteName}`,
     `goal: ${intake.goal}`,
     `experience: ${intake.experience}`,
     `days per week: ${intake.daysPerWeek}`,
