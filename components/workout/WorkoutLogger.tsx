@@ -15,7 +15,9 @@ import {
   ChevronDown,
   Clock,
   EllipsisVertical,
+  Flag,
   Plus,
+  Repeat,
   Sparkles,
   StickyNote,
   TrendingUp,
@@ -614,7 +616,28 @@ function RecommendationBanner({
       </div>
     );
   }
-  return null;
+  if (ex.recommendation === "REPEAT" && ex.targetWeight != null) {
+    return (
+      <div className="mb-3 flex items-center gap-3 rounded-sm border border-border bg-surface-2 px-4 py-3 text-sm text-text-2">
+        <Repeat className="size-4 shrink-0 text-text-3" strokeWidth={2} />
+        <span>
+          <strong className="font-semibold text-text">
+            Use {fmtWeight(ex.targetWeight)} lb again
+          </strong>{" "}
+          — you&apos;re still working through the rep range.
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="mb-3 flex items-center gap-3 rounded-sm border border-border bg-surface-2 px-4 py-3 text-sm text-text-2">
+      <Flag className="size-4 shrink-0 text-text-3" strokeWidth={2} />
+      <span>
+        <strong className="font-semibold text-text">First session</strong> — choose a starting
+        weight you could lift for ~2 more reps at the top of the range.
+      </span>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
