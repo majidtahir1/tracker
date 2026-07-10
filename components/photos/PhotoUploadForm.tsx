@@ -6,10 +6,30 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Capacitor } from "@capacitor/core";
+import { Camera as CapacitorCamera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { Camera, Check, Plus, X } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { FieldError, Input, Label, Textarea } from "@/components/ui/Input";
+
+/** Capture (or pick) a photo via the native Camera plugin and hand back a File. */
+async function captureNativePhoto(label: string): Promise<File | null> {
+  try {
+    const photo = await CapacitorCamera.getPhoto({
+      resultType: CameraResultType.Uri,
+      source: CameraSource.Prompt,
+      quality: 90,
+    });
+    if (!photo.webPath) return null;
+    const res = await fetch(photo.webPath);
+    const blob = await res.blob();
+    return new File([blob], `${label.toLowerCase()}.${photo.format}`, { type: blob.type });
+  } catch {
+    // User cancelled the capture/picker — no error state needed.
+    return null;
+  }
+}
 
 const ANGLES = [
   { key: "front", label: "Front" },
@@ -40,14 +60,8 @@ function AngleTile({
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  return (
-    <label className="relative block cursor-pointer">
-      <input
-        type="file"
-        accept="image/jpeg,image/png,image/webp,image/heic"
-        className="sr-only"
-        onChange={(e) => onSelect(e.target.files?.[0] ?? null)}
-      />
+  const tileVisual = (
+    <>
       <span
         className={`flex aspect-[3/4] w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-sm border transition-colors ${
           preview
@@ -70,6 +84,33 @@ function AngleTile({
           {label}
         </span>
       )}
+    </>
+  );
+
+  if (Capacitor.isNativePlatform()) {
+    return (
+      <button
+        type="button"
+        className="relative block w-full cursor-pointer"
+        onClick={async () => {
+          const file = await captureNativePhoto(label);
+          if (file) onSelect(file);
+        }}
+      >
+        {tileVisual}
+      </button>
+    );
+  }
+
+  return (
+    <label className="relative block cursor-pointer">
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/heic"
+        className="sr-only"
+        onChange={(e) => onSelect(e.target.files?.[0] ?? null)}
+      />
+      {tileVisual}
     </label>
   );
 }
