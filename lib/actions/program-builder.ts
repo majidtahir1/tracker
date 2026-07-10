@@ -88,7 +88,11 @@ export async function runBuilderTurn(input: {
     ok: true,
     message: result.message,
     draft: result.draft,
-    volume: computeVolume(result.draft, byName),
+    volumeByPhase: [
+      computeVolume(result.draft, byName, 1),
+      computeVolume(result.draft, byName, 2),
+      computeVolume(result.draft, byName, 3),
+    ],
     history,
   };
 }

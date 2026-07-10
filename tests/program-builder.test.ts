@@ -5,6 +5,7 @@ import {
   computeVolume,
   type CatalogExercise,
 } from "../lib/ai/program-builder";
+import { slotSetsForPhase } from "../lib/ai/program-builder-types";
 
 const CATALOG: CatalogExercise[] = [
   { name: "Lat Pulldown", primaryMuscle: "LATS", secondaryMuscles: '["BACK","BICEPS"]', equipment: "CABLE", type: "MACHINE_COMPOUND" },
@@ -100,4 +101,21 @@ test("computeVolume counts direct and indirect weekly sets", () => {
   assert.equal(lats?.directSets, 3);
   assert.equal(back?.indirectSets, 3);
   assert.equal(glutes?.directSets, 3);
+});
+
+test("computeVolume applies block adds per phase (block 3 absolute vs base)", () => {
+  const { draft } = validateDraft(validProgram(), byName);
+  // Lat Pulldown: base 3, +1 in block 2, +2 total in block 3
+  const lats1 = computeVolume(draft!, byName, 1).find((v) => v.muscle === "LATS");
+  const lats2 = computeVolume(draft!, byName, 2).find((v) => v.muscle === "LATS");
+  const lats3 = computeVolume(draft!, byName, 3).find((v) => v.muscle === "LATS");
+  assert.equal(lats1?.directSets, 3);
+  assert.equal(lats2?.directSets, 4);
+  assert.equal(lats3?.directSets, 5);
+});
+
+test("slotSetsForPhase halves sets on deload", () => {
+  const { draft } = validateDraft(validProgram(), byName);
+  assert.equal(slotSetsForPhase(draft!, 1, "Lat Pulldown", 3, "deload"), 2);
+  assert.equal(slotSetsForPhase(draft!, 1, "Dumbbell Hip Thrust", 4, "deload"), 2);
 });

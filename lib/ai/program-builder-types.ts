@@ -64,6 +64,35 @@ export interface ChatTurn {
   content: string;
 }
 
+export type ProgramPhase = 1 | 2 | 3 | "deload";
+
+/**
+ * Sets for a slot in a given phase, mirroring lib/schedule.ts resolveTargets:
+ * block adds are absolute vs base (not cumulative), deload halves base sets.
+ */
+export function slotSetsForPhase(
+  draft: DraftProgram,
+  dayNumber: number,
+  exercise: string,
+  baseSets: number,
+  phase: ProgramPhase,
+): number {
+  if (phase === "deload") return Math.ceil(baseSets / 2);
+  if (phase === 2) {
+    const added = draft.block2AddSets.some(
+      (a) => a.day === dayNumber && a.exercise === exercise,
+    );
+    return baseSets + (added ? 1 : 0);
+  }
+  if (phase === 3) {
+    const add = draft.block3AddSets.find(
+      (a) => a.day === dayNumber && a.exercise === exercise,
+    );
+    return baseSets + (add?.addSets ?? 0);
+  }
+  return baseSets;
+}
+
 export interface VolumeRow {
   muscle: MuscleGroup;
   directSets: number;
@@ -75,7 +104,8 @@ export type BuilderResult =
       ok: true;
       message: string;
       draft: DraftProgram;
-      volume: VolumeRow[];
+      /** Weekly volume rows for phase 1, 2, and 3 (index 0..2). */
+      volumeByPhase: [VolumeRow[], VolumeRow[], VolumeRow[]];
       /** Authoritative conversation including this turn; send it back next turn. */
       history: ChatTurn[];
     }

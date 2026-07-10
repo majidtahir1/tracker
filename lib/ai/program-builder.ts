@@ -10,14 +10,16 @@ import {
   Priority,
 } from "@/lib/generated/prisma/enums";
 import { PROGRAM_BUILDER_SYSTEM_PROMPT } from "./program-builder-prompt";
-import type {
-  BuilderIntake,
-  ChatTurn,
-  DraftDay,
-  DraftNewExercise,
-  DraftProgram,
-  DraftSlot,
-  VolumeRow,
+import {
+  slotSetsForPhase,
+  type BuilderIntake,
+  type ChatTurn,
+  type DraftDay,
+  type DraftNewExercise,
+  type DraftProgram,
+  type DraftSlot,
+  type ProgramPhase,
+  type VolumeRow,
 } from "./program-builder-types";
 
 export interface CatalogExercise {
@@ -180,24 +182,26 @@ export function validateDraft(
 
 // ---------- Volume accounting ----------
 
-/** Weekly base-block sets per muscle: direct (primary) and indirect (secondary). */
+/** Weekly sets per muscle for a phase: direct (primary) and indirect (secondary). */
 export function computeVolume(
   draft: DraftProgram,
   catalog: Map<string, CatalogExercise>,
+  phase: ProgramPhase = 1,
 ): VolumeRow[] {
   const direct = new Map<MuscleGroup, number>();
   const indirect = new Map<MuscleGroup, number>();
-  for (const day of draft.days) {
+  draft.days.forEach((day, di) => {
     for (const slot of day.slots) {
+      const sets = slotSetsForPhase(draft, di + 1, slot.exercise, slot.sets, phase);
       const cat = catalog.get(slot.exercise.toLowerCase());
       const primary = cat?.primaryMuscle ?? slot.newExercise?.primaryMuscle;
       const secondary: MuscleGroup[] = cat
         ? (JSON.parse(cat.secondaryMuscles) as MuscleGroup[])
         : (slot.newExercise?.secondaryMuscles ?? []);
-      if (primary) direct.set(primary, (direct.get(primary) ?? 0) + slot.sets);
-      for (const m of secondary) indirect.set(m, (indirect.get(m) ?? 0) + slot.sets);
+      if (primary) direct.set(primary, (direct.get(primary) ?? 0) + sets);
+      for (const m of secondary) indirect.set(m, (indirect.get(m) ?? 0) + sets);
     }
-  }
+  });
   const muscles = new Set([...direct.keys(), ...indirect.keys()]);
   return [...muscles]
     .map((muscle) => ({
