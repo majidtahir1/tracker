@@ -13,6 +13,7 @@ import crypto from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { photosDir, resolveSafe } from "@/lib/photos-storage";
 
 export const runtime = "nodejs";
 
@@ -87,14 +88,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Attach at least one photo." }, { status: 400 });
   }
 
-  const photosDir = path.join(process.cwd(), "public", "photos");
-  await mkdir(photosDir, { recursive: true });
+  const dir = photosDir();
+  await mkdir(dir, { recursive: true });
 
   const saved: Array<{ id: string; angle: string; filePath: string }> = [];
   for (const { angle, file, ext } of files) {
     const name = `${date}-${angle.toLowerCase()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
-    const filePath = `/photos/${name}`;
-    await writeFile(path.join(photosDir, name), Buffer.from(await file.arrayBuffer()));
+    await writeFile(path.join(dir, name), Buffer.from(await file.arrayBuffer()));
 
     // Replacing the same user+date+angle: keep the unique row, remove the old file.
     const existing = await prisma.progressPhoto.findUnique({
@@ -103,13 +103,13 @@ export async function POST(request: Request) {
 
     const row = await prisma.progressPhoto.upsert({
       where: { userId_date_angle: { userId, date, angle } },
-      update: { filePath, weight, bodyFat, notes },
-      create: { userId, date, angle, filePath, weight, bodyFat, notes },
+      update: { filePath: name, weight, bodyFat, notes },
+      create: { userId, date, angle, filePath: name, weight, bodyFat, notes },
     });
 
-    if (existing && existing.filePath !== filePath) {
-      const old = path.resolve(path.join(process.cwd(), "public", existing.filePath));
-      if (old.startsWith(photosDir + path.sep)) {
+    if (existing && existing.filePath !== name) {
+      const old = resolveSafe(existing.filePath);
+      if (old) {
         try {
           await unlink(old);
         } catch {
@@ -118,7 +118,7 @@ export async function POST(request: Request) {
       }
     }
 
-    saved.push({ id: row.id, angle, filePath });
+    saved.push({ id: row.id, angle, filePath: name });
   }
 
   revalidatePath("/photos");

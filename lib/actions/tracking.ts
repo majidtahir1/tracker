@@ -7,11 +7,11 @@
  */
 import { revalidatePath } from "next/cache";
 import { unlink } from "node:fs/promises";
-import path from "node:path";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/session";
 import { recoveryScore, isFatigued } from "@/lib/recovery";
 import { NOTIFICATIONS_ENABLED, fatigueWarningNotification } from "@/lib/notifications";
+import { resolveSafe } from "@/lib/photos-storage";
 
 export interface ActionState {
   ok: boolean;
@@ -205,10 +205,9 @@ export async function deletePhoto(photoId: string): Promise<ActionState> {
 
   await prisma.progressPhoto.delete({ where: { id: photoId } });
 
-  // Remove the file — only ever touch files inside public/photos.
-  const photosDir = path.join(process.cwd(), "public", "photos");
-  const abs = path.resolve(path.join(process.cwd(), "public", photo.filePath));
-  if (abs.startsWith(photosDir + path.sep)) {
+  // Remove the file — resolveSafe guards against anything outside the photos dir.
+  const abs = resolveSafe(photo.filePath);
+  if (abs) {
     try {
       await unlink(abs);
     } catch {
