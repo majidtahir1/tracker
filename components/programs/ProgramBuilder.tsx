@@ -663,8 +663,8 @@ export default function ProgramBuilder({ aiConfigured }: { aiConfigured: boolean
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,4fr)]">
-      <div className="flex flex-col gap-4 lg:sticky lg:top-6 lg:self-start">
-        <Card className="flex max-h-[32rem] flex-col overflow-y-auto p-4">
+      <div className="flex flex-col gap-4 lg:sticky lg:top-8 lg:h-[calc(100dvh-4rem)] lg:self-start">
+        <Card className="flex max-h-[32rem] flex-col overflow-y-auto p-4 lg:max-h-none lg:min-h-0 lg:flex-1">
           <div className="space-y-4">
             {displayChat.map((turn, i) =>
               turn.role === "assistant" ? (
