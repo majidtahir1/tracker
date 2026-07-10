@@ -175,6 +175,8 @@ export interface NextWorkoutPreview {
   date: LocalDate;
   dateLabel: string;
   isToday: boolean;
+  /** True when the user picked this workout instead of the rotation suggestion. */
+  isOverride: boolean;
   week: number;
   phase: number;
   isDeload: boolean;
@@ -283,7 +285,12 @@ export async function getProgramOverview(): Promise<{
   return { programs: mapped, activeProgramId: settings?.activeProgramId ?? null };
 }
 
-export async function getWorkoutOverview(): Promise<WorkoutOverview> {
+/**
+ * `overrideTemplateId` previews a specific workout (from any program) instead
+ * of the rotation suggestion — used by the workout picker so the user can see
+ * targets and weight recommendations before starting.
+ */
+export async function getWorkoutOverview(overrideTemplateId?: string): Promise<WorkoutOverview> {
   const userId = await requireUserId();
   const today = localToday();
   const block = await getLatestBlock();
@@ -345,7 +352,23 @@ export async function getWorkoutOverview(): Promise<WorkoutOverview> {
     orderBy: [{ date: "desc" }, { completedAt: "desc" }],
     select: { templateId: true },
   });
-  const template = templates[nextTemplateIndex(templates, lastCompleted?.templateId)];
+  let template = templates[nextTemplateIndex(templates, lastCompleted?.templateId)];
+  let isOverride = false;
+  if (overrideTemplateId && overrideTemplateId !== template?.id) {
+    const overridden = await prisma.workoutTemplate.findUnique({
+      where: { id: overrideTemplateId },
+      include: {
+        exercises: {
+          orderBy: { sortOrder: "asc" },
+          include: { exercise: true, blockOverrides: true },
+        },
+      },
+    });
+    if (overridden?.isActive) {
+      template = overridden;
+      isOverride = true;
+    }
+  }
   if (template) {
     const date = today;
 
@@ -393,6 +416,7 @@ export async function getWorkoutOverview(): Promise<WorkoutOverview> {
       date,
       dateLabel: fmtDisplay(date),
       isToday: true,
+      isOverride,
       week: w,
       phase,
       isDeload,

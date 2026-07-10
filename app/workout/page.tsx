@@ -41,9 +41,14 @@ function recChip(ex: OverviewExercise) {
   return <Badge variant="neutral">First session — choose a starting weight</Badge>;
 }
 
-export default async function WorkoutPage() {
+export default async function WorkoutPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ template?: string }>;
+}) {
+  const { template: overrideTemplateId } = await searchParams;
   const [{ position, inProgress, next }, { programs, activeProgramId }] = await Promise.all([
-    getWorkoutOverview(),
+    getWorkoutOverview(overrideTemplateId),
     getProgramOverview(),
   ]);
 
@@ -98,7 +103,7 @@ export default async function WorkoutPage() {
           <Card className="rounded-lg p-6 lg:flex lg:items-center lg:justify-between">
             <div>
               <p className="text-xs font-medium uppercase tracking-wider text-text-3">
-                Next workout
+                {next.isOverride ? "Selected workout" : "Next workout"}
               </p>
               <div className="mt-1 flex flex-wrap items-center gap-3">
                 <h2 className="font-display text-2xl font-semibold tracking-tight text-text">
