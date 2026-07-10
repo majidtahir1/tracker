@@ -17,22 +17,30 @@ import {
 } from "recharts";
 import {
   AREA_GRADIENT_STOPS,
-  AXIS_PROPS,
-  CHART_COLORS,
   CHART_MARGIN,
-  GRID_PROPS,
-  PR_DOT_PROPS,
-  TOOLTIP_CURSOR,
-  Y_AXIS_PROPS,
+  useChartTheme,
+  type ChartTheme,
 } from "@/components/charts/ChartTheme";
 import type { E1rmPoint } from "@/lib/queries/analytics";
+
+/**
+ * Resolves a "--color-chart-N" CSS var name to the matching resolved hex
+ * from the active chart theme (ct.series is ordered chart-1..chart-6).
+ */
+function resolveColorVar(colorVar: string, ct: ChartTheme): string {
+  const match = colorVar.match(/chart-(\d+)/);
+  const idx = match ? Number(match[1]) - 1 : 0;
+  return ct.series[idx] ?? ct.colors.volt;
+}
 
 function E1rmTooltip({
   active,
   payload,
+  dotColor,
 }: {
   active?: boolean;
   payload?: Array<{ payload?: E1rmPoint }>;
+  dotColor: string;
 }) {
   const point = payload?.[0]?.payload;
   if (!active || !point) return null;
@@ -40,7 +48,7 @@ function E1rmTooltip({
     <div className="rounded-sm border border-border bg-surface-2 px-3 py-2 text-xs shadow-[var(--shadow-raise)]">
       <div className="text-text-3">{point.label}</div>
       <div className="mt-1 flex items-center gap-1.5 text-text tabular-nums">
-        <span className="size-2 rounded-full" style={{ backgroundColor: CHART_COLORS.volt }} />
+        <span className="size-2 rounded-full" style={{ backgroundColor: dotColor }} />
         <span>{point.e1rm} lb e1RM</span>
       </div>
       <div className="mt-0.5 text-text-3 tabular-nums">top set {point.topSet}</div>
@@ -53,7 +61,21 @@ function E1rmTooltip({
   );
 }
 
-export default function E1rmChart({ series, color = CHART_COLORS.volt }: { series: E1rmPoint[]; color?: string }) {
+/**
+ * `colorVar` is a "--color-chart-N" CSS custom-property name (see
+ * app/analytics/page.tsx's BIG_FOUR_COLORS / VOLUME_LEGEND colorVar
+ * pattern) — resolved here to a literal hex via the chart theme, since
+ * this is the client component in the tree that can call useChartTheme().
+ */
+export default function E1rmChart({
+  series,
+  colorVar = "--color-chart-1",
+}: {
+  series: E1rmPoint[];
+  colorVar?: string;
+}) {
+  const ct = useChartTheme();
+  const color = resolveColorVar(colorVar, ct);
   const gradientId = `e1rm-fill-${color.replace("#", "")}`;
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -64,10 +86,10 @@ export default function E1rmChart({ series, color = CHART_COLORS.volt }: { serie
             <stop offset="100%" stopColor={color} stopOpacity={AREA_GRADIENT_STOPS.bottomOpacity} />
           </linearGradient>
         </defs>
-        <CartesianGrid {...GRID_PROPS} />
-        <XAxis dataKey="label" {...AXIS_PROPS} />
-        <YAxis {...Y_AXIS_PROPS} width={40} />
-        <Tooltip content={<E1rmTooltip />} cursor={TOOLTIP_CURSOR} />
+        <CartesianGrid {...ct.gridProps} />
+        <XAxis dataKey="label" {...ct.axisProps} />
+        <YAxis {...ct.yAxisProps} width={40} />
+        <Tooltip content={<E1rmTooltip dotColor={color} />} cursor={ct.tooltipCursor} />
         <Area
           type="monotone"
           dataKey="e1rm"
@@ -75,12 +97,12 @@ export default function E1rmChart({ series, color = CHART_COLORS.volt }: { serie
           strokeWidth={2}
           fill={`url(#${gradientId})`}
           dot={false}
-          activeDot={{ r: 4, fill: color, stroke: "#0A0B0D", strokeWidth: 2 }}
+          activeDot={{ r: 4, fill: color, stroke: ct.bg, strokeWidth: 2 }}
         />
         {series
           .filter((p) => p.isPr)
           .map((p) => (
-            <ReferenceDot key={p.date} x={p.label} y={p.e1rm} {...PR_DOT_PROPS} />
+            <ReferenceDot key={p.date} x={p.label} y={p.e1rm} {...ct.prDotProps} />
           ))}
       </AreaChart>
     </ResponsiveContainer>

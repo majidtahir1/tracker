@@ -16,14 +16,9 @@ import {
 } from "recharts";
 import {
   AREA_GRADIENT_STOPS,
-  AXIS_PROPS,
-  CHART_COLORS,
   CHART_MARGIN,
   ChartTooltip,
-  GRID_PROPS,
-  lineProps,
-  TOOLTIP_CURSOR,
-  Y_AXIS_PROPS,
+  useChartTheme,
 } from "@/components/charts/ChartTheme";
 import type { HistoryPoint } from "@/lib/queries/exercises";
 
@@ -39,6 +34,7 @@ export default function ExerciseProgressChart({
   history: HistoryPoint[];
   isBodyweight: boolean;
 }) {
+  const ct = useChartTheme();
   const data = history.map((h) => ({
     ...h,
     label: shortDate(h.date),
@@ -53,21 +49,21 @@ export default function ExerciseProgressChart({
           <linearGradient id="exWeightFill" x1="0" y1="0" x2="0" y2="1">
             <stop
               offset="0%"
-              stopColor={CHART_COLORS.volt}
+              stopColor={ct.colors.volt}
               stopOpacity={AREA_GRADIENT_STOPS.topOpacity}
             />
             <stop
               offset="100%"
-              stopColor={CHART_COLORS.volt}
+              stopColor={ct.colors.volt}
               stopOpacity={AREA_GRADIENT_STOPS.bottomOpacity}
             />
           </linearGradient>
         </defs>
-        <CartesianGrid {...GRID_PROPS} />
-        <XAxis dataKey="label" {...AXIS_PROPS} />
-        <YAxis {...Y_AXIS_PROPS} width={40} />
+        <CartesianGrid {...ct.gridProps} />
+        <XAxis dataKey="label" {...ct.axisProps} />
+        <YAxis {...ct.yAxisProps} width={40} />
         <Tooltip
-          cursor={TOOLTIP_CURSOR}
+          cursor={ct.tooltipCursor}
           content={<ChartTooltip formatter={(v) => `${v} lb`} />}
         />
         {!hasE1rm && (
@@ -80,13 +76,13 @@ export default function ExerciseProgressChart({
             tooltipType="none"
           />
         )}
-        <Line dataKey="topWeight" name={weightName} {...lineProps(CHART_COLORS.volt)} />
+        <Line dataKey="topWeight" name={weightName} {...ct.lineProps(ct.colors.volt)} />
         {hasE1rm && (
           <Line
             dataKey="e1rm"
             name="e1RM"
             connectNulls
-            {...lineProps(CHART_COLORS.teal)}
+            {...ct.lineProps(ct.colors.teal)}
           />
         )}
       </ComposedChart>

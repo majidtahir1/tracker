@@ -15,13 +15,9 @@ import {
   YAxis,
 } from "recharts";
 import {
-  AXIS_PROPS,
-  CHART_COLORS,
   CHART_MARGIN,
   ChartTooltip,
-  GRID_PROPS,
-  lineProps,
-  TOOLTIP_CURSOR,
+  useChartTheme,
 } from "@/components/charts/ChartTheme";
 
 export default function WhoopRecoveryChart({
@@ -31,6 +27,7 @@ export default function WhoopRecoveryChart({
   recovery: { date: string; label: string; score: number }[];
   hrv: { date: string; label: string; hrvMs: number }[];
 }) {
+  const ct = useChartTheme();
   const byDate = new Map<string, { label: string; score: number | null; hrv: number | null }>();
   for (const p of recovery) byDate.set(p.date, { label: p.label, score: p.score, hrv: null });
   for (const p of hrv) {
@@ -45,31 +42,31 @@ export default function WhoopRecoveryChart({
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data} margin={{ ...CHART_MARGIN, right: 4 }}>
-        <CartesianGrid {...GRID_PROPS} />
-        <XAxis dataKey="label" {...AXIS_PROPS} />
-        <YAxis yAxisId="score" {...AXIS_PROPS} width={30} domain={[0, 100]} tickCount={4} />
-        <YAxis yAxisId="hrv" orientation="right" {...AXIS_PROPS} width={34} tickCount={4} />
+        <CartesianGrid {...ct.gridProps} />
+        <XAxis dataKey="label" {...ct.axisProps} />
+        <YAxis yAxisId="score" {...ct.axisProps} width={30} domain={[0, 100]} tickCount={4} />
+        <YAxis yAxisId="hrv" orientation="right" {...ct.axisProps} width={34} tickCount={4} />
         <Tooltip
           content={
             <ChartTooltip
               formatter={(v, name) => (name === "HRV" ? `${v} ms` : `${v} / 100`)}
             />
           }
-          cursor={TOOLTIP_CURSOR}
+          cursor={ct.tooltipCursor}
         />
         <Line
           yAxisId="score"
           dataKey="score"
           name="Recovery"
           connectNulls
-          {...lineProps(CHART_COLORS.teal)}
+          {...ct.lineProps(ct.colors.teal)}
         />
         <Line
           yAxisId="hrv"
           dataKey="hrv"
           name="HRV"
           connectNulls
-          {...lineProps(CHART_COLORS.indigo)}
+          {...ct.lineProps(ct.colors.indigo)}
         />
       </LineChart>
     </ResponsiveContainer>

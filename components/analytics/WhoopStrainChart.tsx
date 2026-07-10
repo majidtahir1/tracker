@@ -11,13 +11,9 @@ import {
   YAxis,
 } from "recharts";
 import {
-  AXIS_PROPS,
-  CHART_COLORS,
   CHART_MARGIN,
   ChartTooltip,
-  GRID_PROPS,
-  lineProps,
-  TOOLTIP_CURSOR,
+  useChartTheme,
 } from "@/components/charts/ChartTheme";
 
 export default function WhoopStrainChart({
@@ -25,17 +21,18 @@ export default function WhoopStrainChart({
 }: {
   data: { label: string; strain: number }[];
 }) {
+  const ct = useChartTheme();
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data} margin={CHART_MARGIN}>
-        <CartesianGrid {...GRID_PROPS} />
-        <XAxis dataKey="label" {...AXIS_PROPS} />
-        <YAxis {...AXIS_PROPS} width={30} domain={[0, 21]} tickCount={4} />
+        <CartesianGrid {...ct.gridProps} />
+        <XAxis dataKey="label" {...ct.axisProps} />
+        <YAxis {...ct.axisProps} width={30} domain={[0, 21]} tickCount={4} />
         <Tooltip
           content={<ChartTooltip formatter={(v) => `${v} strain`} />}
-          cursor={TOOLTIP_CURSOR}
+          cursor={ct.tooltipCursor}
         />
-        <Line dataKey="strain" name="Strain" {...lineProps(CHART_COLORS.amber)} />
+        <Line dataKey="strain" name="Strain" {...ct.lineProps(ct.colors.amber)} />
       </LineChart>
     </ResponsiveContainer>
   );

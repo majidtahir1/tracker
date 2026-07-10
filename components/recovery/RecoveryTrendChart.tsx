@@ -12,14 +12,9 @@ import {
   YAxis,
 } from "recharts";
 import {
-  AXIS_PROPS,
-  CHART_COLORS,
   CHART_MARGIN,
   ChartTooltip,
-  GRID_PROPS,
-  lineProps,
-  TARGET_LINE_PROPS,
-  TOOLTIP_CURSOR,
+  useChartTheme,
 } from "@/components/charts/ChartTheme";
 import type { RecoveryTrendPoint } from "@/lib/queries/tracking";
 
@@ -29,24 +24,25 @@ function shortDate(date: string): string {
 }
 
 export default function RecoveryTrendChart({ data }: { data: RecoveryTrendPoint[] }) {
+  const ct = useChartTheme();
   const points = data.map((p) => ({ ...p, label: shortDate(p.date) }));
 
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={points} margin={CHART_MARGIN}>
-        <CartesianGrid {...GRID_PROPS} />
-        <XAxis dataKey="label" {...AXIS_PROPS} minTickGap={16} />
-        <YAxis {...AXIS_PROPS} domain={[0, 100]} tickCount={5} width={32} />
-        <ReferenceLine y={40} {...TARGET_LINE_PROPS} />
+        <CartesianGrid {...ct.gridProps} />
+        <XAxis dataKey="label" {...ct.axisProps} minTickGap={16} />
+        <YAxis {...ct.axisProps} domain={[0, 100]} tickCount={5} width={32} />
+        <ReferenceLine y={40} {...ct.targetLineProps} />
         <Tooltip
-          cursor={TOOLTIP_CURSOR}
+          cursor={ct.tooltipCursor}
           content={<ChartTooltip formatter={(v) => `${v} / 100`} />}
         />
         <Line
           dataKey="score"
           name="Score"
           connectNulls
-          {...lineProps(CHART_COLORS.teal)}
+          {...ct.lineProps(ct.colors.teal)}
         />
       </LineChart>
     </ResponsiveContainer>

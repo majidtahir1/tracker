@@ -11,14 +11,9 @@ import {
   YAxis,
 } from "recharts";
 import {
-  AXIS_PROPS,
-  CHART_COLORS,
   CHART_MARGIN,
   ChartTooltip,
-  GRID_PROPS,
-  lineProps,
-  TOOLTIP_CURSOR,
-  Y_AXIS_PROPS,
+  useChartTheme,
 } from "@/components/charts/ChartTheme";
 import type { NutritionTrendPoint } from "@/lib/queries/tracking";
 
@@ -28,17 +23,18 @@ function shortDate(date: string): string {
 }
 
 export default function NutritionTrendChart({ data }: { data: NutritionTrendPoint[] }) {
+  const ct = useChartTheme();
   const points = data.map((p) => ({ ...p, label: shortDate(p.date) }));
 
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={points} margin={CHART_MARGIN}>
-        <CartesianGrid {...GRID_PROPS} />
-        <XAxis dataKey="label" {...AXIS_PROPS} minTickGap={24} />
-        <YAxis yAxisId="cal" {...Y_AXIS_PROPS} width={44} />
-        <YAxis yAxisId="pro" orientation="right" {...Y_AXIS_PROPS} width={36} />
+        <CartesianGrid {...ct.gridProps} />
+        <XAxis dataKey="label" {...ct.axisProps} minTickGap={24} />
+        <YAxis yAxisId="cal" {...ct.yAxisProps} width={44} />
+        <YAxis yAxisId="pro" orientation="right" {...ct.yAxisProps} width={36} />
         <Tooltip
-          cursor={TOOLTIP_CURSOR}
+          cursor={ct.tooltipCursor}
           content={
             <ChartTooltip
               formatter={(v, name) =>
@@ -52,14 +48,14 @@ export default function NutritionTrendChart({ data }: { data: NutritionTrendPoin
           dataKey="calories"
           name="Calories"
           connectNulls
-          {...lineProps(CHART_COLORS.volt)}
+          {...ct.lineProps(ct.colors.volt)}
         />
         <Line
           yAxisId="pro"
           dataKey="protein"
           name="Protein"
           connectNulls
-          {...lineProps(CHART_COLORS.sky)}
+          {...ct.lineProps(ct.colors.sky)}
         />
       </LineChart>
     </ResponsiveContainer>

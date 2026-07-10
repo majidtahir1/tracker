@@ -9,9 +9,9 @@ import { Card } from "@/components/ui/Card";
 import { Badge, type BadgeVariant } from "@/components/ui/Badge";
 import {
   AREA_GRADIENT_STOPS,
-  CHART_COLORS,
   ChartTooltip,
-  TOOLTIP_CURSOR,
+  useChartTheme,
+  type ChartTheme,
 } from "@/components/charts/ChartTheme";
 import type { MeasurementMetric } from "@/lib/queries/tracking";
 
@@ -33,14 +33,15 @@ function deltaVariant(metric: MeasurementMetric): BadgeVariant {
   return isGood ? "success" : "danger";
 }
 
-function metricColor(key: string): string {
-  if (key === "weight") return CHART_COLORS.sky;
-  if (key === "bodyFat") return CHART_COLORS.pink;
-  return CHART_COLORS.teal;
+function metricColor(key: string, ct: ChartTheme): string {
+  if (key === "weight") return ct.colors.sky;
+  if (key === "bodyFat") return ct.colors.pink;
+  return ct.colors.teal;
 }
 
 function MetricCard({ metric }: { metric: MeasurementMetric }) {
-  const color = metricColor(metric.key);
+  const ct = useChartTheme();
+  const color = metricColor(metric.key, ct);
   const gradientId = `metric-fill-${metric.key}`;
 
   return (
@@ -74,7 +75,7 @@ function MetricCard({ metric }: { metric: MeasurementMetric }) {
               <XAxis dataKey="date" hide />
               <YAxis hide domain={["auto", "auto"]} />
               <Tooltip
-                cursor={TOOLTIP_CURSOR}
+                cursor={ct.tooltipCursor}
                 content={
                   <ChartTooltip formatter={(v) => `${fmtValue(Number(v))} ${metric.unit}`} />
                 }
@@ -87,7 +88,7 @@ function MetricCard({ metric }: { metric: MeasurementMetric }) {
                 strokeWidth={2}
                 fill={`url(#${gradientId})`}
                 dot={false}
-                activeDot={{ r: 4, fill: color, stroke: "#0A0B0D", strokeWidth: 2 }}
+                activeDot={{ r: 4, fill: color, stroke: ct.bg, strokeWidth: 2 }}
               />
             </AreaChart>
           </ResponsiveContainer>

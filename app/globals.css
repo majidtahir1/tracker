@@ -1,49 +1,48 @@
 @import "tailwindcss";
 
 @theme {
-  /* ---- Background layers (deepest → raised) ---- */
-  --color-bg:        #0A0B0D; /* app canvas */
-  --color-bg-subtle: #101114; /* page-section wells, sidebar */
-  --color-surface:   #16181C; /* cards */
-  --color-surface-2: #1D2025; /* raised: hover rows, inputs, steppers */
-  --color-surface-3: #24282E; /* pressed / active-input */
+  /* ---- Colors: values live in :root / [data-theme="dark"] below ---- */
+  --color-bg:        var(--bg);
+  --color-bg-subtle: var(--bg-subtle);
+  --color-surface:   var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
 
-  /* ---- Borders ---- */
-  --color-border:        #24272D; /* default hairline */
-  --color-border-strong: #33373F; /* hover / focused card */
-  --color-border-faint:  #1A1C20; /* dividers inside cards */
+  --color-border:        var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-border-faint:  var(--border-faint);
 
-  /* ---- Text hierarchy ---- */
-  --color-text:        #F2F4F5; /* primary — headings, stat numbers */
-  --color-text-2:      #A8AFB8; /* secondary — body, values in tables */
-  --color-text-3:      #666D78; /* tertiary — labels, captions, units */
-  --color-text-faint:  #43484F; /* disabled, placeholders */
+  --color-text:       var(--text);
+  --color-text-2:     var(--text-2);
+  --color-text-3:     var(--text-3);
+  --color-text-faint: var(--text-faint);
 
-  /* ---- Accent: volt ---- */
-  --color-accent:        #A3E635; /* lime-400 family; primary actions, active nav */
-  --color-accent-hover:  #B5F04D;
-  --color-accent-press:  #8FCF2B;
-  --color-accent-text:   #0A0B0D; /* text ON accent — always near-black */
-  --color-accent-muted:  #A3E63514; /* 8% tint fills (active nav bg, badges) */
-  --color-accent-border: #A3E63540; /* 25% tint borders */
+  --color-accent:        var(--accent);
+  --color-accent-hover:  var(--accent-hover);
+  --color-accent-press:  var(--accent-press);
+  --color-accent-text:   var(--accent-text);
+  --color-accent-muted:  var(--accent-muted);
+  --color-accent-border: var(--accent-border);
 
-  /* ---- Status ---- */
-  --color-success:        #4ADE80;
-  --color-success-muted:  #4ADE8014;
-  --color-warning:        #FBBF24;
-  --color-warning-muted:  #FBBF2414;
-  --color-danger:         #F87171;
-  --color-danger-muted:   #F8717114;
-  --color-info:           #38BDF8;
-  --color-info-muted:     #38BDF814;
+  --color-success:       var(--success);
+  --color-success-muted: var(--success-muted);
+  --color-warning:       var(--warning);
+  --color-warning-muted: var(--warning-muted);
+  --color-danger:        var(--danger);
+  --color-danger-muted:  var(--danger-muted);
+  --color-info:          var(--info);
+  --color-info-muted:    var(--info-muted);
 
-  /* ---- Chart palette (in order of use) ---- */
-  --color-chart-1: #A3E635; /* volt — primary series (e1RM, volume) */
-  --color-chart-2: #38BDF8; /* sky — body weight */
-  --color-chart-3: #F472B6; /* pink — chest/push groups */
-  --color-chart-4: #FBBF24; /* amber — back/pull groups */
-  --color-chart-5: #818CF8; /* indigo — legs */
-  --color-chart-6: #2DD4BF; /* teal — arms/recovery */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+
+  --shadow-card:  var(--shadow-card-v);
+  --shadow-raise: var(--shadow-raise-v);
+  --shadow-pr:    var(--shadow-pr-v);
 
   /* ---- Fonts (next/font variables set in app/fonts.ts) ---- */
   --font-sans:    var(--font-inter), ui-sans-serif, system-ui, sans-serif;
@@ -57,14 +56,99 @@
   --radius-lg: 16px;  /* hero cards, modals */
   --radius-full: 9999px;
 
-  /* ---- Shadows (dark-tuned: shadow + inner top highlight) ---- */
-  --shadow-card:  0 1px 0 0 rgb(255 255 255 / 0.04) inset, 0 1px 2px 0 rgb(0 0 0 / 0.4);
-  --shadow-raise: 0 1px 0 0 rgb(255 255 255 / 0.05) inset, 0 8px 24px -8px rgb(0 0 0 / 0.6);
-  --shadow-pr:    0 0 0 1px #A3E63540, 0 0 24px -4px #A3E63559;
-
   /* ---- Spacing: use Tailwind default 4px scale. Canonical rhythm: ----
      p-4 inside compact cards, p-5 standard cards, p-6 hero cards,
      gap-4 grids on mobile, gap-5 on desktop, space-y-8 between page sections. */
+}
+
+/* ---- Light theme (default) ---- */
+:root {
+  --bg:        #F7F8FA;
+  --bg-subtle: #F1F3F5;
+  --surface:   #FFFFFF;
+  --surface-2: #F7F8FA;
+  --surface-3: #EDEFF2;
+
+  --border:        #E3E6EA;
+  --border-strong: #CDD2D8;
+  --border-faint:  #EDEFF2;
+
+  --text:       #16181C;
+  --text-2:     #4A5158;
+  --text-3:     #767D86;
+  --text-faint: #A3AAB2;
+
+  --accent:        #18181B; /* ink — chrome/primary actions stay monochrome */
+  --accent-hover:  #27272A;
+  --accent-press:  #000000;
+  --accent-text:   #FFFFFF;
+  --accent-muted:  #18181B14; /* 8% tint — active nav bg */
+  --accent-border: #18181B40; /* 25% tint */
+
+  --success:       #16A34A;
+  --success-muted: #DCFCE7;
+  --warning:       #D97706;
+  --warning-muted: #FEF3C7;
+  --danger:        #DC2626;
+  --danger-muted:  #FEE2E2;
+  --info:          #2563EB;
+  --info-muted:    #DBEAFE;
+
+  --chart-1: #4D7C0F; /* volt/lime, deepened for legibility on white — data keeps the brand color */
+  --chart-2: #0EA5E9;
+  --chart-3: #DB2777;
+  --chart-4: #D97706;
+  --chart-5: #7C3AED;
+  --chart-6: #0D9488;
+
+  --shadow-card-v:  0 1px 2px 0 rgb(16 24 40 / 0.06), 0 1px 3px 0 rgb(16 24 40 / 0.04);
+  --shadow-raise-v: 0 8px 24px -8px rgb(16 24 40 / 0.16);
+  --shadow-pr-v:    0 0 0 1px #4D7C0F40, 0 0 24px -4px #4D7C0F59;
+}
+
+/* ---- Dark theme (opt-in via toggle) — values moved verbatim from the old @theme ---- */
+:root[data-theme="dark"] {
+  --bg:        #0A0B0D;
+  --bg-subtle: #101114;
+  --surface:   #16181C;
+  --surface-2: #1D2025;
+  --surface-3: #24282E;
+
+  --border:        #24272D;
+  --border-strong: #33373F;
+  --border-faint:  #1A1C20;
+
+  --text:       #F2F4F5;
+  --text-2:     #A8AFB8;
+  --text-3:     #666D78;
+  --text-faint: #43484F;
+
+  --accent:        #A3E635;
+  --accent-hover:  #B5F04D;
+  --accent-press:  #8FCF2B;
+  --accent-text:   #0A0B0D;
+  --accent-muted:  #A3E63514;
+  --accent-border: #A3E63540;
+
+  --success:       #4ADE80;
+  --success-muted: #4ADE8014;
+  --warning:       #FBBF24;
+  --warning-muted: #FBBF2414;
+  --danger:        #F87171;
+  --danger-muted:  #F8717114;
+  --info:          #38BDF8;
+  --info-muted:    #38BDF814;
+
+  --chart-1: #A3E635;
+  --chart-2: #38BDF8;
+  --chart-3: #F472B6;
+  --chart-4: #FBBF24;
+  --chart-5: #818CF8;
+  --chart-6: #2DD4BF;
+
+  --shadow-card-v:  0 1px 0 0 rgb(255 255 255 / 0.04) inset, 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-raise-v: 0 1px 0 0 rgb(255 255 255 / 0.05) inset, 0 8px 24px -8px rgb(0 0 0 / 0.6);
+  --shadow-pr-v:    0 0 0 1px #A3E63540, 0 0 24px -4px #A3E63559;
 }
 
 body {

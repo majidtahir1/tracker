@@ -30,6 +30,7 @@ import { getLatestEffectiveRecovery } from "@/lib/queries/effective-recovery";
 import { recommendProgression, type PriorSet } from "@/lib/progression";
 import { consecutiveWeeks, SESSIONS_PER_WEEK, type WeekSessions } from "@/lib/streaks";
 import {
+  NOTIFICATIONS_ENABLED,
   scheduleNotifications,
   progressionNotification,
   type NotificationCandidate,
@@ -343,7 +344,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   }
 
   // ----- Notification generation (idempotent) -----
-  if (block && position && settings) {
+  if (NOTIFICATIONS_ENABLED && block && position && settings) {
     const [photoCount, measurementCount] = await Promise.all([
       prisma.progressPhoto.count({ where: { userId, date: { startsWith: monthKey(today) } } }),
       prisma.bodyMeasurement.count({ where: { userId, date: { startsWith: monthKey(today) } } }),
@@ -593,14 +594,16 @@ export async function getDashboardData(): Promise<DashboardData> {
   const hasMuscleVolume = muscleVolume.some((m) => m.actual > 0);
 
   // ----- Notifications (top 5, unread first) -----
-  const [notificationRows, unreadCount] = await Promise.all([
-    prisma.notification.findMany({
-      where: { userId },
-      orderBy: [{ read: "asc" }, { createdAt: "desc" }],
-      take: 5,
-    }),
-    prisma.notification.count({ where: { userId, read: false } }),
-  ]);
+  const [notificationRows, unreadCount] = NOTIFICATIONS_ENABLED
+    ? await Promise.all([
+        prisma.notification.findMany({
+          where: { userId },
+          orderBy: [{ read: "asc" }, { createdAt: "desc" }],
+          take: 5,
+        }),
+        prisma.notification.count({ where: { userId, read: false } }),
+      ])
+    : [[], 0 as number];
   const notifications: DashboardNotification[] = notificationRows.map((n) => ({
     id: n.id,
     type: n.type,

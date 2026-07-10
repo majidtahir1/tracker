@@ -5,74 +5,90 @@
  * Import these in every "use client" chart wrapper — never restyle inline.
  */
 import type { ReactNode } from "react";
-
-/** Chart palette, in order of use (matches --color-chart-N tokens). */
-export const CHART_COLORS = {
-  volt: "#A3E635", // chart-1: primary series (e1RM, volume)
-  sky: "#38BDF8", // chart-2: body weight
-  pink: "#F472B6", // chart-3: chest/push groups
-  amber: "#FBBF24", // chart-4: back/pull groups
-  indigo: "#818CF8", // chart-5: legs
-  teal: "#2DD4BF", // chart-6: arms/recovery
-} as const;
-
-export const CHART_SERIES: string[] = Object.values(CHART_COLORS);
-
-export const CHART_BG = "#0A0B0D";
+import { useEffect, useState } from "react";
+import { useTheme } from "@/components/theme/ThemeProvider";
 
 /** Tight margins — the card provides the surface. */
 export const CHART_MARGIN = { top: 8, right: 8, bottom: 0, left: 0 };
-
-/** Horizontal-only gridlines. Spread onto <CartesianGrid>. */
-export const GRID_PROPS = {
-  stroke: "#24272D",
-  strokeDasharray: "3 6",
-  vertical: false,
-} as const;
-
-/** Spread onto <XAxis>/<YAxis>: no axis/tick lines, muted 11px labels. */
-export const AXIS_PROPS = {
-  axisLine: false,
-  tickLine: false,
-  tick: { fill: "#666D78", fontSize: 11 },
-} as const;
-
-/** Y-axis: 4 ticks max, domain padded ~5%. */
-export const Y_AXIS_PROPS = {
-  ...AXIS_PROPS,
-  tickCount: 4,
-  domain: ["auto", "auto"] as [string, string],
-} as const;
-
-/** Spread onto <Line>: strokeWidth 2, no dots, monotone curves. */
-export function lineProps(color: string) {
-  return {
-    stroke: color,
-    strokeWidth: 2,
-    dot: false,
-    activeDot: { r: 4, fill: color, stroke: CHART_BG, strokeWidth: 2 },
-    type: "monotone" as const,
-  };
-}
-
-/** Spread onto <Bar>: rounded tops. Category gap 30% goes on the chart. */
-export function barProps(color: string) {
-  return { fill: color, radius: [4, 4, 0, 0] as [number, number, number, number] };
-}
 
 export const BAR_CATEGORY_GAP = "30%";
 
 /** Gradient stops for the area under single-series primary lines (18% → 0%). */
 export const AREA_GRADIENT_STOPS = { topOpacity: 0.18, bottomOpacity: 0 };
 
-/** Tooltip cursor line. */
-export const TOOLTIP_CURSOR = { stroke: "#33373F" } as const;
+const LIGHT_FALLBACK: Record<string, string> = {
+  "--chart-1": "#4D7C0F", "--chart-2": "#0EA5E9", "--chart-3": "#DB2777",
+  "--chart-4": "#D97706", "--chart-5": "#7C3AED", "--chart-6": "#0D9488",
+  "--bg": "#F7F8FA", "--text-3": "#767D86", "--text-faint": "#A3AAB2",
+  "--surface-2": "#F7F8FA", "--border": "#E3E6EA", "--border-strong": "#CDD2D8",
+};
 
-/** PR markers: <ReferenceDot {...PR_DOT_PROPS} />. */
-export const PR_DOT_PROPS = { r: 3.5, fill: "#A3E635", stroke: CHART_BG } as const;
+function readVar(name: string): string {
+  if (typeof window === "undefined") return LIGHT_FALLBACK[name] ?? "#000";
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v || LIGHT_FALLBACK[name] || "#000";
+}
 
-/** Target lines: <ReferenceLine {...TARGET_LINE_PROPS} />. */
-export const TARGET_LINE_PROPS = { stroke: "#666D78", strokeDasharray: "4 4" } as const;
+function buildChartTheme() {
+  const colors = {
+    volt: readVar("--chart-1"),
+    sky: readVar("--chart-2"),
+    pink: readVar("--chart-3"),
+    amber: readVar("--chart-4"),
+    indigo: readVar("--chart-5"),
+    teal: readVar("--chart-6"),
+  };
+  const bg = readVar("--bg");
+  const axisText = readVar("--text-3");
+  const faint = readVar("--text-faint");
+  const surface2 = readVar("--surface-2");
+  const grid = readVar("--border");
+  const borderStrong = readVar("--border-strong");
+
+  const axisProps = {
+    axisLine: false as const,
+    tickLine: false as const,
+    tick: { fill: axisText, fontSize: 11 },
+  };
+
+  return {
+    colors,
+    series: Object.values(colors),
+    bg,
+    axisText,
+    faint,
+    surface2,
+    gridProps: { stroke: grid, strokeDasharray: "3 6", vertical: false as const },
+    axisProps,
+    yAxisProps: { ...axisProps, tickCount: 4, domain: ["auto", "auto"] as [string, string] },
+    tooltipCursor: { stroke: borderStrong },
+    prDotProps: { r: 3.5, fill: colors.volt, stroke: bg },
+    targetLineProps: { stroke: axisText, strokeDasharray: "4 4" },
+    lineProps: (color: string) => ({
+      stroke: color,
+      strokeWidth: 2,
+      dot: false,
+      activeDot: { r: 4, fill: color, stroke: bg, strokeWidth: 2 },
+      type: "monotone" as const,
+    }),
+    barProps: (color: string) => ({
+      fill: color,
+      radius: [4, 4, 0, 0] as [number, number, number, number],
+    }),
+  };
+}
+
+export type ChartTheme = ReturnType<typeof buildChartTheme>;
+
+/** Resolved chart colors for the active theme; recomputes on toggle. */
+export function useChartTheme(): ChartTheme {
+  const { theme } = useTheme();
+  const [ct, setCt] = useState<ChartTheme>(() => buildChartTheme());
+  useEffect(() => {
+    setCt(buildChartTheme());
+  }, [theme]);
+  return ct;
+}
 
 interface TooltipEntry {
   name?: string | number;

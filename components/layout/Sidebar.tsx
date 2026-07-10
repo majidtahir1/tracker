@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Dumbbell } from "lucide-react";
 import { NAV_ITEMS } from "./nav-items";
 import { authClient } from "@/lib/auth-client";
+import ThemeToggle from "@/components/theme/ThemeToggle";
 
 const RING =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
@@ -45,6 +46,9 @@ export default function Sidebar({ username }: { username: string }) {
         })}
       </nav>
       <div className="space-y-2 p-3 border-t border-border-faint">
+        <div className="flex items-center justify-between rounded-sm px-3 py-1.5">
+          <ThemeToggle />
+        </div>
         <div className="rounded-sm bg-surface px-3 py-2 text-xs text-text-3">
           Block <span className="font-mono text-accent">1</span> · Week{" "}
           <span className="font-mono text-accent">1</span>
