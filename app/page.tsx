@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/Badge";
 import NextWorkoutCard from "@/components/dashboard/NextWorkoutCard";
 import LastWorkoutCard from "@/components/dashboard/LastWorkoutCard";
 import NotificationsCard from "@/components/dashboard/NotificationsCard";
+import { NOTIFICATIONS_ENABLED } from "@/lib/notifications";
 import CoachBriefCard from "@/components/dashboard/CoachBriefCard";
 import {
   BodyWeightChart,
@@ -173,7 +174,9 @@ export default async function DashboardPage() {
 
       <div className="grid gap-5 lg:grid-cols-2">
         <LastWorkoutCard last={data.lastWorkout} />
-        <NotificationsCard notifications={data.notifications} unreadCount={data.unreadCount} />
+        {NOTIFICATIONS_ENABLED && (
+          <NotificationsCard notifications={data.notifications} unreadCount={data.unreadCount} />
+        )}
       </div>
     </div>
   );

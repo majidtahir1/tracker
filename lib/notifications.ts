@@ -8,6 +8,13 @@
 import type { NotificationType } from "@/lib/generated/prisma/enums";
 import { monthKey, type LocalDate } from "@/lib/dates";
 
+/**
+ * Global kill switch (2026-07-10): in-app notifications are disabled and
+ * hidden until the iOS app lands with real push support. Generators and the
+ * dashboard honor this flag; existing rows are kept but never shown.
+ */
+export const NOTIFICATIONS_ENABLED = false;
+
 export interface NotificationCandidate {
   userId: string;
   type: NotificationType;

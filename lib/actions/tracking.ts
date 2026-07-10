@@ -11,7 +11,7 @@ import path from "node:path";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/session";
 import { recoveryScore, isFatigued } from "@/lib/recovery";
-import { fatigueWarningNotification } from "@/lib/notifications";
+import { NOTIFICATIONS_ENABLED, fatigueWarningNotification } from "@/lib/notifications";
 
 export interface ActionState {
   ok: boolean;
@@ -181,7 +181,7 @@ export async function saveRecovery(
   });
 
   // Low score → fatigue warning notification (idempotent via dedupeKey).
-  if (isFatigued(score) && score != null) {
+  if (NOTIFICATIONS_ENABLED && isFatigued(score) && score != null) {
     const candidate = fatigueWarningNotification(userId, date, score);
     const existingNotification = await prisma.notification.findUnique({
       where: { userId_dedupeKey: { userId, dedupeKey: candidate.dedupeKey } },
