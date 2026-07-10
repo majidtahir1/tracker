@@ -4,7 +4,7 @@
  * AI Program Builder wizard: intake form → chat refinement with a live
  * program preview → finalize (save / save & activate).
  */
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Bot, Check, Loader2, Send, Sparkles } from "lucide-react";
 import Button from "@/components/ui/Button";
@@ -82,6 +82,66 @@ function Chip({
   );
 }
 
+/** Mo's design stages while generating — built from the actual intake. */
+function thinkingSteps(intake: BuilderIntake, refining: boolean): string[] {
+  if (refining) {
+    return [
+      "Re-reading the current program…",
+      "Applying your change…",
+      "Re-balancing weekly volume around it…",
+      "Checking nothing else got knocked out of place…",
+    ];
+  }
+  const goalLabel = GOALS.find((g) => g.value === intake.goal)?.label.toLowerCase() ?? "your goal";
+  const steps = [
+    `Reading your intake — ${goalLabel}, ${intake.daysPerWeek} days/week, ~${intake.sessionMinutes}-minute sessions…`,
+    `Choosing a ${intake.daysPerWeek}-day split that hits every major muscle about twice a week…`,
+  ];
+  if (intake.priorityMuscles.length > 0) {
+    steps.push(
+      `Front-loading your priorities — ${intake.priorityMuscles.map((m) => MUSCLE_LABELS[m].toLowerCase()).join(", ")} — early in each session…`,
+    );
+  }
+  if (intake.injuries.trim()) {
+    steps.push(`Picking exercises that work around: ${intake.injuries.trim()}…`);
+  }
+  steps.push(
+    `Selecting movements for your equipment (${intake.equipment.map((e) => EQUIPMENT_LABELS[e].toLowerCase()).join(", ")})…`,
+    "Balancing weekly sets per muscle — enough to grow, not enough to bury you…",
+    "Setting rep ranges, effort targets, and rest periods…",
+    "Laying out the 13-week block progression and deload…",
+    "Writing it all up…",
+  );
+  return steps;
+}
+
+function CoachThinking({ intake, refining }: { intake: BuilderIntake; refining: boolean }) {
+  const [steps] = useState(() => thinkingSteps(intake, refining));
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(
+      () => setIndex((i) => Math.min(i + 1, steps.length - 1)),
+      refining ? 4000 : 3200,
+    );
+    return () => clearInterval(timer);
+  }, [steps.length, refining]);
+
+  return (
+    <div className="space-y-2" aria-live="polite">
+      {steps.slice(0, index + 1).map((step, i) => (
+        <div key={i} className="flex items-start gap-2.5 text-sm">
+          {i < index ? (
+            <Check className="mt-0.5 size-4 shrink-0 text-accent" strokeWidth={2} />
+          ) : (
+            <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-accent" strokeWidth={2} />
+          )}
+          <span className={i < index ? "text-text-3" : "text-text"}>{step}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function DraftPreview({
   draft,
   volume,
@@ -131,6 +191,47 @@ function DraftPreview({
             </ul>
           </Card>
         ))}
+        <Card className="self-start p-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-text-3">
+            The 13-week plan
+          </h4>
+          <ul className="mt-3 space-y-2.5 text-xs leading-relaxed">
+            <li>
+              <span className="font-semibold text-text">Weeks 1–4 · Foundation.</span>{" "}
+              <span className="text-text-3">
+                The sets shown on the day cards. Weight goes up per exercise once you hit the top
+                of the rep range on every set (double progression).
+              </span>
+            </li>
+            <li>
+              <span className="font-semibold text-text">Weeks 5–8 · Build.</span>{" "}
+              <span className="text-text-3">
+                {draft.block2AddSets.length > 0
+                  ? `Adds a set to ${draft.block2AddSets
+                      .map((a) => `${a.exercise} (day ${a.day})`)
+                      .join(", ")}.`
+                  : "Same sets — progression continues through added weight and reps."}
+              </span>
+            </li>
+            <li>
+              <span className="font-semibold text-text">Weeks 9–12 · Specialize.</span>{" "}
+              <span className="text-text-3">
+                {draft.block3AddSets.length > 0
+                  ? `Versus weeks 1–4: ${draft.block3AddSets
+                      .map((a) => `+${a.addSets} ${a.addSets === 1 ? "set" : "sets"} ${a.exercise} (day ${a.day})`)
+                      .join(", ")}.`
+                  : "Same sets — progression continues through added weight and reps."}
+              </span>
+            </li>
+            <li>
+              <span className="font-semibold text-text">Week 13 · Deload.</span>{" "}
+              <span className="text-text-3">
+                Automatic: half the sets at ~82% of your working weights, then the next 13-week
+                cycle begins.
+              </span>
+            </li>
+          </ul>
+        </Card>
         <Card className="self-start p-4">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-text-3">
             Weekly sets per muscle (weeks 1–4)
@@ -386,10 +487,9 @@ export default function ProgramBuilder({ aiConfigured }: { aiConfigured: boolean
           )}
         </Button>
         {pending && (
-          <p className="text-xs text-text-3">
-            The coach thinks through volume, exercise selection, and progression — this can take a
-            few minutes.
-          </p>
+          <Card className="p-4">
+            <CoachThinking intake={intake()} refining={false} />
+          </Card>
         )}
       </form>
     );
@@ -412,12 +512,7 @@ export default function ProgramBuilder({ aiConfigured }: { aiConfigured: boolean
                 </p>
               ),
             )}
-            {pending && (
-              <div className="flex items-center gap-2 text-sm text-text-3">
-                <Loader2 className="size-4 animate-spin" strokeWidth={2} /> Reworking the program…
-                this can take a few minutes.
-              </div>
-            )}
+            {pending && <CoachThinking intake={intake()} refining />}
             <div ref={chatEndRef} />
           </div>
         </Card>
