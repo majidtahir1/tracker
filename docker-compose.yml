@@ -1,0 +1,44 @@
+# Tracker — production compose for a home-lab host behind an EXISTING reverse
+# proxy (Traefik / Nginx Proxy Manager / Caddy) that terminates TLS.
+#
+# The app runs plain HTTP on 3000 and is published only to loopback, so nothing
+# is exposed to the LAN/internet directly — your reverse proxy forwards to it.
+# If your proxy runs as a container on its own Docker network, see the
+# "shared network" note in docs/DEPLOYMENT.md instead of publishing a port.
+#
+# First deploy / after any schema change, apply the schema to the mounted DB:
+#   docker compose run --rm app npx prisma db push
+# Optional one-time seed of exercise catalog etc.:
+#   docker compose run --rm app npm run db:seed
+
+services:
+  app:
+    build: .
+    image: tracker:latest
+    container_name: tracker
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      # DB lives on the mounted volume, NOT inside the image.
+      DATABASE_URL: file:/data/tracker.db
+    volumes:
+      # Persistent SQLite database (survives image rebuilds).
+      - ./data:/data
+      # Persistent progress-photo uploads (route writes to public/photos).
+      - ./photos:/app/public/photos
+    ports:
+      # Loopback only — your existing reverse proxy (on this host) forwards here.
+      # Change to "0.0.0.0:3000:3000" only if the proxy is on another machine.
+      - "127.0.0.1:3000:3000"
+
+# --- Alternative: join your reverse proxy's network instead of publishing a port ---
+# Uncomment and set the external network name your proxy uses, remove the
+# `ports:` block above, and add Traefik labels / NPM host config pointing at
+# http://tracker:3000. See docs/DEPLOYMENT.md.
+#
+# networks:
+#   default:
+#     name: proxy
+#     external: true

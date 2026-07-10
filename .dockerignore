@@ -1,0 +1,25 @@
+# Build artifacts and local state — never ship these into the image.
+node_modules
+.next
+.git
+.gitignore
+
+# Local data / secrets (mounted or injected at runtime instead)
+.env
+.env.local
+.env.production
+prisma/dev.db
+prisma/dev.db-journal
+prisma/dev.db-shm
+prisma/dev.db-wal
+public/photos
+
+# Native iOS shell — not part of the server image
+ios
+
+# Dev/CI scratch
+.superpowers
+docs
+tests
+*.log
+scratchpad
