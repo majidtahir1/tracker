@@ -105,6 +105,7 @@ export async function finalizeDraftProgram(
   }
 
   let name = draft.name.trim().slice(0, 60);
+  if (name.length < 2) return { ok: false, error: "Program name must be at least 2 characters." };
   const taken = await prisma.program.findUnique({ where: { name } });
   if (taken) name = `${name.slice(0, 50)} (${new Date().toISOString().slice(0, 10)})`;
 

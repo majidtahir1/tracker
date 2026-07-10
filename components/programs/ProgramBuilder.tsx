@@ -82,61 +82,78 @@ function Chip({
   );
 }
 
-function DraftPreview({ draft, volume }: { draft: DraftProgram; volume: VolumeRow[] }) {
+function DraftPreview({
+  draft,
+  volume,
+  onRename,
+}: {
+  draft: DraftProgram;
+  volume: VolumeRow[];
+  onRename: (name: string) => void;
+}) {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="font-display text-lg font-semibold text-text">{draft.name}</h3>
+        <input
+          value={draft.name}
+          onChange={(e) => onRename(e.target.value)}
+          maxLength={60}
+          aria-label="Program name"
+          title="Click to rename the program"
+          className="-mx-2 w-full rounded-sm border border-transparent bg-transparent px-2 py-1 font-display text-lg font-semibold text-text transition-colors hover:border-border focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/25"
+        />
         {draft.description && <p className="mt-1 text-sm text-text-3">{draft.description}</p>}
       </div>
-      {draft.days.map((day, di) => (
-        <Card key={di} className="overflow-hidden">
-          <div className="border-b border-border-faint px-4 py-3">
-            <p className="text-xs font-medium uppercase tracking-wider text-accent">Day {di + 1}</p>
-            <h4 className="mt-0.5 text-sm font-semibold text-text">{day.name}</h4>
-          </div>
-          <ul className="divide-y divide-border-faint">
-            {day.slots.map((slot, si) => (
-              <li key={si} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                <span className="min-w-0 truncate text-sm text-text">
-                  {slot.exercise}
-                  {slot.newExercise && (
-                    <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wider text-accent">
-                      new
-                    </span>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {draft.days.map((day, di) => (
+          <Card key={di} className="self-start overflow-hidden">
+            <div className="border-b border-border-faint px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-wider text-accent">Day {di + 1}</p>
+              <h4 className="mt-0.5 text-sm font-semibold text-text">{day.name}</h4>
+            </div>
+            <ul className="divide-y divide-border-faint">
+              {day.slots.map((slot, si) => (
+                <li key={si} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                  <span className="min-w-0 truncate text-sm text-text">
+                    {slot.exercise}
+                    {slot.newExercise && (
+                      <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wider text-accent">
+                        new
+                      </span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-xs tabular-nums text-text-3">
+                    {slot.sets} × {slot.repMin === slot.repMax ? slot.repMax : `${slot.repMin}–${slot.repMax}`}
+                    {slot.isPerSide ? " each" : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        ))}
+        <Card className="self-start p-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-text-3">
+            Weekly sets per muscle (weeks 1–4)
+          </h4>
+          <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5">
+            {volume.map((row) => (
+              <div key={row.muscle} className="flex items-center justify-between text-xs">
+                <span className="text-text-3">{MUSCLE_LABELS[row.muscle]}</span>
+                <span className="tabular-nums text-text">
+                  {row.directSets}
+                  {row.indirectSets > 0 && (
+                    <span className="text-text-faint"> +{row.indirectSets}</span>
                   )}
                 </span>
-                <span className="shrink-0 text-xs tabular-nums text-text-3">
-                  {slot.sets} × {slot.repMin === slot.repMax ? slot.repMax : `${slot.repMin}–${slot.repMax}`}
-                  {slot.isPerSide ? " each" : ""}
-                </span>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
+          <p className="mt-3 text-[11px] leading-relaxed text-text-faint">
+            Direct sets, with secondary-muscle sets after the +. Weeks 5–12 add sets per the
+            program&apos;s block progression; week 13 deloads automatically.
+          </p>
         </Card>
-      ))}
-      <Card className="p-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-text-3">
-          Weekly sets per muscle (weeks 1–4)
-        </h4>
-        <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5">
-          {volume.map((row) => (
-            <div key={row.muscle} className="flex items-center justify-between text-xs">
-              <span className="text-text-3">{MUSCLE_LABELS[row.muscle]}</span>
-              <span className="tabular-nums text-text">
-                {row.directSets}
-                {row.indirectSets > 0 && (
-                  <span className="text-text-faint"> +{row.indirectSets}</span>
-                )}
-              </span>
-            </div>
-          ))}
-        </div>
-        <p className="mt-3 text-[11px] leading-relaxed text-text-faint">
-          Direct sets, with secondary-muscle sets after the +. Weeks 5–12 add sets per the
-          program&apos;s block progression; week 13 deloads automatically.
-        </p>
-      </Card>
+      </div>
     </div>
   );
 }
@@ -164,6 +181,8 @@ export default function ProgramBuilder({ aiConfigured }: { aiConfigured: boolean
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<{ name: string; activated: boolean } | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  // Once the user types a name, chat refinements keep it instead of the model's.
+  const renamedRef = useRef(false);
 
   const started = history.length > 0;
 
@@ -189,7 +208,11 @@ export default function ProgramBuilder({ aiConfigured }: { aiConfigured: boolean
       } else {
         setDisplayChat([{ role: "assistant", text: result.message }]);
       }
-      setDraft(result.draft);
+      setDraft(
+        renamedRef.current && draft?.name.trim()
+          ? { ...result.draft, name: draft.name }
+          : result.draft,
+      );
       setVolume(result.volume);
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     });
@@ -214,6 +237,10 @@ export default function ProgramBuilder({ aiConfigured }: { aiConfigured: boolean
 
   function finalize(activate: boolean) {
     if (!draft) return;
+    if (draft.name.trim().length < 2) {
+      setError("Give the program a name (at least 2 characters) before saving.");
+      return;
+    }
     setError(null);
     startTransition(async () => {
       const result = await finalizeDraftProgram(draft, {
@@ -369,8 +396,8 @@ export default function ProgramBuilder({ aiConfigured }: { aiConfigured: boolean
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,4fr)]">
-      <div className="flex flex-col gap-4">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+      <div className="flex flex-col gap-4 lg:sticky lg:top-6 lg:self-start">
         <Card className="flex max-h-[32rem] flex-col overflow-y-auto p-4">
           <div className="space-y-4">
             {displayChat.map((turn, i) =>
@@ -422,7 +449,18 @@ export default function ProgramBuilder({ aiConfigured }: { aiConfigured: boolean
         )}
       </div>
 
-      <div>{draft && <DraftPreview draft={draft} volume={volume} />}</div>
+      <div>
+        {draft && (
+          <DraftPreview
+            draft={draft}
+            volume={volume}
+            onRename={(name) => {
+              renamedRef.current = true;
+              setDraft({ ...draft, name });
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }
