@@ -35,6 +35,7 @@ import {
   updateExerciseNotes,
 } from "@/lib/actions/workout";
 import type { FiredPr, LoggerExercise, LoggerSession, SetData } from "./types";
+import { buildRows } from "./build-rows";
 import SetRow from "./SetRow";
 import { askSetCoach } from "@/lib/actions/set-coach";
 import type { SetCoachResponse } from "@/lib/ai/set-coach-types";
@@ -54,19 +55,6 @@ function fmtRest(seconds: number): string {
 function epleyLocal(weight: number, reps: number): number {
   if (weight <= 0 || reps <= 0) return 0;
   return reps === 1 ? weight : weight * (1 + reps / 30);
-}
-
-/** Initial editable rows: persisted sets, padded to targetSets with prefills. */
-function buildRows(ex: LoggerExercise): SetData[] {
-  const rows: SetData[] = ex.sets.map((s) => ({ ...s }));
-  for (let n = rows.length + 1; n <= ex.targetSets; n++) {
-    const prev = ex.prevSets[n - 1] ?? ex.prevSets[ex.prevSets.length - 1];
-    const weight = ex.targetWeight ?? prev?.weight ?? 0;
-    const reps =
-      ex.recommendation === "INCREASE" ? ex.targetRepMin : prev?.reps ?? ex.targetRepMin;
-    rows.push({ id: null, setNumber: n, weight, reps, rir: null, completed: false });
-  }
-  return rows;
 }
 
 function ElapsedClock({ startedAt }: { startedAt: string | null }) {
@@ -209,7 +197,7 @@ export default function WorkoutLogger({ session, editMode = false }: { session: 
           ...rows,
           {
             id: null,
-            setNumber: rows.length + 1,
+            setNumber: Math.max(0, ...rows.map((r) => r.setNumber)) + 1,
             weight: last?.weight ?? ex.targetWeight ?? 0,
             reps: last?.reps ?? ex.targetRepMin,
             rir: null,
