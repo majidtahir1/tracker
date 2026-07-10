@@ -41,9 +41,14 @@ function recChip(ex: OverviewExercise) {
   return <Badge variant="neutral">First session — choose a starting weight</Badge>;
 }
 
-export default async function WorkoutPage() {
+export default async function WorkoutPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ template?: string }>;
+}) {
+  const { template: overrideTemplateId } = await searchParams;
   const [{ position, inProgress, next }, { programs, activeProgramId }] = await Promise.all([
-    getWorkoutOverview(),
+    getWorkoutOverview(overrideTemplateId),
     getProgramOverview(),
   ]);
 
@@ -98,7 +103,7 @@ export default async function WorkoutPage() {
           <Card className="rounded-lg p-6 lg:flex lg:items-center lg:justify-between">
             <div>
               <p className="text-xs font-medium uppercase tracking-wider text-text-3">
-                Next workout
+                {next.isOverride ? "Selected workout" : "Next workout"}
               </p>
               <div className="mt-1 flex flex-wrap items-center gap-3">
                 <h2 className="font-display text-2xl font-semibold tracking-tight text-text">
@@ -117,6 +122,13 @@ export default async function WorkoutPage() {
                 </span>
                 <span className="tabular-nums">{next.totalSets} working sets</span>
               </p>
+              {next.lowRecovery && !next.isDeload && (
+                <p className="mt-3 max-w-xl rounded-sm border border-warning/30 bg-warning/10 px-3 py-2 text-xs leading-relaxed text-text-2">
+                  Recovery is low today. Weight targets below are based purely on your last
+                  performance — if you feel tired or low on energy, it&apos;s smart to drop a set
+                  or take ~10% off, but that call is yours.
+                </p>
+              )}
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {next.exercises
                   .filter((e) => e.recommendation === "INCREASE" && e.weight != null)

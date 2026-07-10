@@ -2,9 +2,11 @@
 
 /**
  * "Full program" section: program dropdown → workout dropdown → Start today.
- * The selected program also drives the day cards below.
+ * Selecting a workout also updates ?template= so the page's preview (targets
+ * and weight recommendations) re-renders for it before the user starts.
  */
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronDown, Play } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -39,6 +41,7 @@ export default function FullProgram({
   canStart: boolean;
   today: string;
 }) {
+  const router = useRouter();
   const [programId, setProgramId] = useState(initialProgramId);
   const program = programs.find((p) => p.id === programId) ?? programs[0];
   const [templateId, setTemplateId] = useState(
@@ -47,10 +50,18 @@ export default function FullProgram({
 
   if (!program) return null;
 
+  function previewTemplate(id: string) {
+    setTemplateId(id);
+    // Re-render the page's preview card (targets + weight recommendations)
+    // for this workout, and bring it into view.
+    router.replace(id ? `/workout?template=${id}` : "/workout", { scroll: false });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function selectProgram(id: string) {
     setProgramId(id);
     const nextProgram = programs.find((p) => p.id === id);
-    setTemplateId(nextProgram?.workouts[0]?.id ?? "");
+    previewTemplate(nextProgram?.workouts[0]?.id ?? "");
   }
 
   const programSelect = (
@@ -92,7 +103,7 @@ export default function FullProgram({
                 name="templateId"
                 aria-label="Choose today's workout"
                 value={templateId}
-                onChange={(e) => setTemplateId(e.target.value)}
+                onChange={(e) => previewTemplate(e.target.value)}
                 className={`${selectClass} sm:min-w-64`}
               >
                 {program.workouts.map((workout) => (
