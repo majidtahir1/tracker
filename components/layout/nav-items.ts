@@ -1,16 +1,11 @@
 import {
-  Apple,
-  CalendarDays,
   ClipboardList,
-  Camera,
   ChartLine,
   Dumbbell,
   HeartPulse,
   History,
   LayoutDashboard,
   Library,
-  Ruler,
-  Target,
   Trophy,
   type LucideIcon,
 } from "lucide-react";
@@ -21,8 +16,10 @@ export interface NavItem {
   icon: LucideIcon;
 }
 
-/** All routes, sidebar order. Icons per DESIGN.md §6 (ChartLine = lucide's
- * current name for the LineChart icon). */
+/** Routes shown in the nav, sidebar order. Icons per DESIGN.md §6 (ChartLine
+ * = lucide's current name for the LineChart icon).
+ * Measurements, Photos, Nutrition, Calendar, and Goals are hidden from the
+ * nav (2026-07-10) — the routes still exist and deep links keep working. */
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/workout", label: "Next Workout", icon: Dumbbell },
@@ -30,14 +27,9 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/history", label: "History", icon: History },
   { href: "/exercises", label: "Exercises", icon: Library },
   { href: "/records", label: "Records", icon: Trophy },
-  { href: "/measurements", label: "Measurements", icon: Ruler },
-  { href: "/photos", label: "Photos", icon: Camera },
-  { href: "/nutrition", label: "Nutrition", icon: Apple },
   { href: "/recovery", label: "Recovery", icon: HeartPulse },
   { href: "/analytics", label: "Analytics", icon: ChartLine },
-  { href: "/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/goals", label: "Goals", icon: Target },
 ];
 
 /** The 4 fixed mobile tabs (5th slot is "More"). */
-export const MOBILE_NAV_HREFS = ["/", "/workout", "/analytics", "/calendar"];
+export const MOBILE_NAV_HREFS = ["/", "/workout", "/history", "/analytics"];
