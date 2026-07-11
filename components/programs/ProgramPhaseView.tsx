@@ -204,8 +204,47 @@ function OverviewTable({ data }: { data: PhaseViewData }) {
       render: () => "2–3 min compounds · 60–90s isolation (shown per exercise in the app)",
     },
   ];
+  const footer =
+    "Every phase progresses weight by double progression: own the top of the rep range on all " +
+    "sets and the app raises the load. Week 13 is an automatic deload — half the sets at ~82% " +
+    "of your working weights — then the next 13-week cycle begins.";
+
   return (
-    <Card className="overflow-x-auto">
+    <>
+      {/* Mobile: one compact card per phase — the wide table never renders. */}
+      <div className="space-y-3 md:hidden">
+        {phases.map((p) => (
+          <Card key={p} className="p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-accent">
+              Phase {p === 1 ? "I" : p === 2 ? "II" : "III"} · Weeks{" "}
+              {p === 1 ? "1–4" : p === 2 ? "5–8" : "9–12"}
+            </p>
+            <h4 className="mt-0.5 font-display text-sm font-semibold text-text">
+              {PHASE_META[p].title}
+            </h4>
+            <p className="mt-1.5 text-sm leading-relaxed text-text-2">{PHASE_META[p].objective}</p>
+            <p className="mt-1 text-xs leading-relaxed text-text-3">{PHASE_META[p].expect}</p>
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 border-t border-border-faint pt-2.5 text-xs">
+              <span className="tabular-nums text-text-2">{data.days.length} sessions/wk</span>
+              <span className="tabular-nums text-text-2">{phaseTotalSets(data, p)} weekly sets</span>
+            </div>
+            <p className="mt-1.5 text-xs text-text-3">{changes[p]}</p>
+          </Card>
+        ))}
+        <Card className="p-4 text-xs leading-relaxed text-text-3">
+          <p>
+            <span className="font-semibold text-text-2">Effort:</span> {data.effortText}
+          </p>
+          <p className="mt-1">
+            <span className="font-semibold text-text-2">Rest:</span> 2–3 min compounds · 60–90s
+            isolation (shown per exercise in the app)
+          </p>
+          <p className="mt-2 text-[11px] text-text-faint">{footer}</p>
+        </Card>
+      </div>
+
+      {/* Desktop: side-by-side comparison table. */}
+      <Card className="hidden overflow-x-auto md:block">
       <table className="w-full min-w-[560px] text-left text-xs">
         <thead>
           <tr className="border-b border-border-faint">
@@ -238,11 +277,10 @@ function OverviewTable({ data }: { data: PhaseViewData }) {
         </tbody>
       </table>
       <p className="border-t border-border-faint px-4 py-3 text-[11px] leading-relaxed text-text-faint">
-        Every phase progresses weight by double progression: own the top of the rep range on all
-        sets and the app raises the load. Week 13 is an automatic deload — half the sets at ~82%
-        of your working weights — then the next 13-week cycle begins.
+        {footer}
       </p>
-    </Card>
+      </Card>
+    </>
   );
 }
 
