@@ -9,6 +9,7 @@ import {
   MuscleGroup,
   Priority,
 } from "@/lib/generated/prisma/enums";
+import { clip } from "./dashboard-coach";
 import { PROGRAM_BUILDER_SYSTEM_PROMPT } from "./program-builder-prompt";
 import {
   slotSetsForPhase,
@@ -374,7 +375,8 @@ export async function requestProgramDraft(
     const { draft, errors } = validateDraft(parsed.raw, catalog);
     if (draft) {
       console.log(`program-builder: attempt ${attempt + 1} ok in ${secs}s`);
-      return { message: parsed.message || "Here is the updated program.", draft };
+      // Sentence-aware backstop for the prompt's word limit — phone-first UI.
+      return { message: clip(parsed.message, 900) || "Here is the updated program.", draft };
     }
     console.error(`program-builder: attempt ${attempt + 1} (${secs}s) failed validation:`, errors.slice(0, 12).join(" | "));
     lastErrors = errors.slice(0, 12);
