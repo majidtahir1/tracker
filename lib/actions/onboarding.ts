@@ -18,6 +18,8 @@ export interface OnboardingResult {
 
 export async function completeOnboarding(input: {
   bodyWeightLb: number | null;
+  /** "starter" activates the built-in program; anything else leaves none active. */
+  programChoice: "starter" | "ai" | "manual" | "skip";
 }): Promise<OnboardingResult> {
   const userId = await requireUserId();
   const weight = input.bodyWeightLb;
@@ -33,11 +35,21 @@ export async function completeOnboarding(input: {
       create: { userId, date, weight },
     });
   }
+
+  let activeProgramId: string | null | undefined; // undefined = leave as-is
+  if (input.programChoice === "starter") {
+    const starter = await prisma.program.findFirst({ orderBy: { createdAt: "asc" } });
+    activeProgramId = starter?.id;
+  }
   await prisma.appSettings.update({
     where: { userId },
-    data: { onboardedAt: new Date().toISOString() },
+    data: {
+      onboardedAt: new Date().toISOString(),
+      ...(activeProgramId !== undefined ? { activeProgramId } : {}),
+    },
   });
   revalidatePath("/");
+  revalidatePath("/workout");
   revalidatePath("/measurements");
   return { ok: true };
 }

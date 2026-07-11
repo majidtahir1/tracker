@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/session";
-import { shouldOnboard } from "@/lib/onboarding";
 import OnboardingWizard, { type StarterProgram } from "@/components/onboarding/OnboardingWizard";
 
 export const metadata = { title: "Welcome" };
@@ -13,12 +12,18 @@ export default async function OnboardingPage() {
     prisma.appSettings.findUnique({ where: { userId } }),
     prisma.workoutSession.count({ where: { userId, status: "COMPLETED" } }),
   ]);
-  if (!shouldOnboard(settings, completedCount)) redirect("/");
+  // The wizard stays reachable (via the dashboard's "finish setup" link) after
+  // a skip, until a program is activated or a workout is logged. Only the
+  // dashboard's automatic redirect keys off onboardedAt (shouldOnboard).
+  const done = completedCount > 0 || (settings?.onboardedAt != null && settings.activeProgramId != null);
+  if (done) redirect("/");
 
   let starter: StarterProgram | null = null;
-  if (settings?.activeProgramId) {
-    const program = await prisma.program.findUnique({
-      where: { id: settings.activeProgramId },
+  {
+    // The built-in starter is the oldest program in the catalog — the wizard's
+    // "keep the starter" choice activates it (nothing is active until then).
+    const program = await prisma.program.findFirst({
+      orderBy: { createdAt: "asc" },
       include: {
         workouts: {
           where: { isActive: true },

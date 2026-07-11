@@ -61,7 +61,7 @@ export function composeDailyBrief(inputs: DailyBriefInputs): CoachBriefData {
   if (!inputs.hasHistory && !inputs.yesterday) {
     const message = inputs.todayWorkout
       ? `Your program starts with ${inputs.todayWorkout.name}. Weight targets appear once you've logged a session — today is about finding working weights: pick a load you could lift for about two more reps at the top of each range.`
-      : "Your program is set up and your first workout is waiting on the schedule. When you start it, pick weights you could lift for about two more reps at the top of each range — that becomes your baseline.";
+      : "Pick a program to get rolling — keep the built-in starter, build one with the AI coach, or make your own under Programs. Your first workout appears here the moment one is active.";
     return {
       headline: clip("Welcome — day one starts now", 100),
       message: clip(message, 600),

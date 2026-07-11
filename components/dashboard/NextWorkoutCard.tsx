@@ -22,9 +22,16 @@ export default function NextWorkoutCard({
         <div className="mt-3 flex items-center gap-3">
           <Dumbbell className="size-5 text-text-faint" strokeWidth={2} />
           <p className="text-sm text-text-3">
-            No active program schedule found. Seed the program to get Monday&rsquo;s Push session
-            on the board.
+            No active program yet — pick one and your next workout will appear here.
           </p>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <ButtonLink href="/onboarding" size="sm">
+            Finish setup
+          </ButtonLink>
+          <ButtonLink href="/programs" size="sm" variant="subtle">
+            Browse programs
+          </ButtonLink>
         </div>
       </div>
     );
@@ -45,9 +52,9 @@ export default function NextWorkoutCard({
         </p>
         {isNewUser && (
           <p className="mt-2 text-xs text-text-3">
-            We&rsquo;ve set you up on the built-in starter program —{" "}
+            You&rsquo;re on the starter program —{" "}
             <Link href="/programs" className="font-medium text-accent hover:underline">
-              browse or change it under Programs
+              change it anytime under Programs
             </Link>
             .
           </p>

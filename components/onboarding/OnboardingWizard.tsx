@@ -45,15 +45,19 @@ export default function OnboardingWizard({ starter }: { starter: StarterProgram 
 
   const parsedWeight = weight.trim() === "" ? null : Number(weight);
 
-  function finish(opts: { connectWhoop?: boolean; skipWeight?: boolean } = {}) {
+  function finish(opts: { connectWhoop?: boolean; skipAll?: boolean } = {}) {
     setError(null);
-    const bodyWeightLb = opts.skipWeight ? null : parsedWeight;
+    const bodyWeightLb = opts.skipAll ? null : parsedWeight;
     if (bodyWeightLb != null && (!Number.isFinite(bodyWeightLb) || bodyWeightLb < 30 || bodyWeightLb > 1000)) {
       setError("Body weight should be between 30 and 1000 lb.");
       return;
     }
     startTransition(async () => {
-      const res = await completeOnboarding({ bodyWeightLb });
+      // Skipping setup activates nothing — the dashboard shows "pick a program".
+      const res = await completeOnboarding({
+        bodyWeightLb,
+        programChoice: opts.skipAll ? "skip" : choice,
+      });
       if (!res.ok) {
         setError(res.error ?? "Couldn't save — try again.");
         return;
@@ -216,7 +220,7 @@ export default function OnboardingWizard({ starter }: { starter: StarterProgram 
               <button
                 type="button"
                 disabled={pending}
-                onClick={() => finish({ skipWeight: true })}
+                onClick={() => finish({ skipAll: true })}
                 className="text-text-3 transition-colors hover:text-text"
               >
                 Skip setup for now

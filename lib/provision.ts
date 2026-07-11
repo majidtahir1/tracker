@@ -18,12 +18,13 @@ export function mondayOfCurrentWeek(now: Date): string {
 }
 
 export async function provisionNewUser(userId: string): Promise<void> {
-  const firstProgram = await prisma.program.findFirst({ orderBy: { createdAt: "asc" } });
+  // No auto-activated program: the onboarding wizard makes that an explicit
+  // choice (starter/AI/manual), and skipping it leaves no program active.
   await prisma.$transaction([
     prisma.appSettings.upsert({
       where: { userId },
       update: {},
-      create: { userId, activeProgramId: firstProgram?.id ?? null },
+      create: { userId, activeProgramId: null },
     }),
     prisma.trainingBlock.upsert({
       where: { userId_cycleNumber: { userId, cycleNumber: 1 } },
