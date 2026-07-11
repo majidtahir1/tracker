@@ -15,7 +15,9 @@ import {
   ChevronDown,
   Clock,
   EllipsisVertical,
+  Flag,
   Plus,
+  Repeat,
   Sparkles,
   StickyNote,
   TrendingUp,
@@ -33,9 +35,12 @@ import {
   updateExerciseNotes,
 } from "@/lib/actions/workout";
 import type { FiredPr, LoggerExercise, LoggerSession, SetData } from "./types";
+import { buildRows } from "./build-rows";
 import SetRow from "./SetRow";
 import { askSetCoach } from "@/lib/actions/set-coach";
 import type { SetCoachResponse } from "@/lib/ai/set-coach-types";
+import { getExerciseRecap } from "@/lib/actions/exercise-recap";
+import type { ExerciseRecapResponse } from "@/lib/ai/exercise-recap-types";
 
 const RING =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
@@ -52,19 +57,6 @@ function fmtRest(seconds: number): string {
 function epleyLocal(weight: number, reps: number): number {
   if (weight <= 0 || reps <= 0) return 0;
   return reps === 1 ? weight : weight * (1 + reps / 30);
-}
-
-/** Initial editable rows: persisted sets, padded to targetSets with prefills. */
-function buildRows(ex: LoggerExercise): SetData[] {
-  const rows: SetData[] = ex.sets.map((s) => ({ ...s }));
-  for (let n = rows.length + 1; n <= ex.targetSets; n++) {
-    const prev = ex.prevSets[n - 1] ?? ex.prevSets[ex.prevSets.length - 1];
-    const weight = ex.targetWeight ?? prev?.weight ?? 0;
-    const reps =
-      ex.recommendation === "INCREASE" ? ex.targetRepMin : prev?.reps ?? ex.targetRepMin;
-    rows.push({ id: null, setNumber: n, weight, reps, rir: null, completed: false });
-  }
-  return rows;
 }
 
 function ElapsedClock({ startedAt }: { startedAt: string | null }) {
@@ -107,6 +99,12 @@ export default function WorkoutLogger({ session, editMode = false }: { session: 
     return (firstIncomplete ?? session.exercises[0])?.sessionExerciseId ?? null;
   });
   const [prFlash, setPrFlash] = useState<Record<string, FiredPr[]>>({});
+  // Coach recap fired when an exercise's last set completes. forExerciseId is
+  // the card it renders on (the next exercise), or null after the final one.
+  const [recap, setRecap] = useState<{
+    forExerciseId: string | null;
+    data: ExerciseRecapResponse;
+  } | null>(null);
   const [swapForId, setSwapForId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [finishing, setFinishing] = useState(false);
@@ -124,7 +122,7 @@ export default function WorkoutLogger({ session, editMode = false }: { session: 
     return { done, total };
   }, [rowsMap, session.exercises]);
 
-  const save = (ex: LoggerExercise, row: SetData) => {
+  const save = (ex: LoggerExercise, row: SetData, afterSave?: () => Promise<void>) => {
     startTransition(async () => {
       const res = await logSet({
         sessionExerciseId: ex.sessionExerciseId,
@@ -157,6 +155,7 @@ export default function WorkoutLogger({ session, editMode = false }: { session: 
           return { ...p, [ex.sessionExerciseId]: merged };
         });
       }
+      await afterSave?.();
     });
   };
 
@@ -176,15 +175,28 @@ export default function WorkoutLogger({ session, editMode = false }: { session: 
     );
     setRowsMap((m) => ({ ...m, [ex.sessionExerciseId]: rows }));
     const updated = rows.find((r) => r.setNumber === setNumber);
-    if (updated) save(ex, updated);
+    const exerciseDone = updated?.completed === true && rows.every((r) => r.completed);
+    const idx = session.exercises.findIndex((e) => e.sessionExerciseId === ex.sessionExerciseId);
+    const nextEx = exerciseDone
+      ? session.exercises
+          .slice(idx + 1)
+          .find((e) => (rowsMap[e.sessionExerciseId] ?? []).some((r) => !r.completed))
+      : undefined;
+    if (updated) {
+      // The recap runs after logSet resolves so the server sees the final set.
+      const fetchRecap =
+        exerciseDone && !editMode
+          ? async () => {
+              const res = await getExerciseRecap(ex.sessionExerciseId);
+              if (res.ok) {
+                setRecap({ forExerciseId: nextEx?.sessionExerciseId ?? null, data: res.recap });
+              }
+            }
+          : undefined;
+      save(ex, updated, fetchRecap);
+    }
     // Auto-advance: finishing the last set collapses into the next exercise.
-    if (updated?.completed && rows.every((r) => r.completed)) {
-      const idx = session.exercises.findIndex(
-        (e) => e.sessionExerciseId === ex.sessionExerciseId
-      );
-      const nextEx = session.exercises
-        .slice(idx + 1)
-        .find((e) => (rowsMap[e.sessionExerciseId] ?? []).some((r) => !r.completed));
+    if (exerciseDone) {
       if (nextEx) {
         setActiveId(nextEx.sessionExerciseId);
         window.setTimeout(() => {
@@ -207,7 +219,7 @@ export default function WorkoutLogger({ session, editMode = false }: { session: 
           ...rows,
           {
             id: null,
-            setNumber: rows.length + 1,
+            setNumber: Math.max(0, ...rows.map((r) => r.setNumber)) + 1,
             weight: last?.weight ?? ex.targetWeight ?? 0,
             reps: last?.reps ?? ex.targetRepMin,
             rir: null,
@@ -330,6 +342,9 @@ export default function WorkoutLogger({ session, editMode = false }: { session: 
               }}
               className="scroll-mt-20"
             >
+              {expanded && recap?.forExerciseId === ex.sessionExerciseId && (
+                <RecapBanner recap={recap.data} onDismiss={() => setRecap(null)} />
+              )}
               {expanded ? (
                 <ExpandedCard
                   ex={ex}
@@ -369,6 +384,9 @@ export default function WorkoutLogger({ session, editMode = false }: { session: 
             </div>
           );
         })}
+        {recap && recap.forExerciseId === null && (
+          <RecapBanner recap={recap.data} onDismiss={() => setRecap(null)} />
+        )}
       </div>
 
       {/* Bottom sticky bar (mobile) */}
@@ -563,6 +581,40 @@ function ExpandedCard({
   );
 }
 
+function RecapBanner({
+  recap,
+  onDismiss,
+}: {
+  recap: ExerciseRecapResponse;
+  onDismiss: () => void;
+}) {
+  return (
+    <div className="mb-3 rounded-sm border border-accent-border bg-accent-muted p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <Sparkles className="mt-0.5 size-4 shrink-0 text-accent" strokeWidth={2} />
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-text">{recap.headline}</h3>
+            <p className="mt-1 text-sm text-text-2">{recap.message}</p>
+            <p className="mt-2 text-xs font-medium text-accent">{recap.focusCue}</p>
+            {recap.source === "deterministic" && (
+              <p className="mt-2 text-[11px] text-text-faint">Local coaching fallback</p>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          aria-label="Dismiss coach feedback"
+          onClick={onDismiss}
+          className={`grid size-8 shrink-0 place-items-center rounded-sm text-text-3 transition-colors hover:bg-surface-2 hover:text-text ${RING}`}
+        >
+          <X className="size-4" strokeWidth={2} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function RecommendationBanner({
   ex,
   onKeepWeight,
@@ -614,7 +666,28 @@ function RecommendationBanner({
       </div>
     );
   }
-  return null;
+  if (ex.recommendation === "REPEAT" && ex.targetWeight != null) {
+    return (
+      <div className="mb-3 flex items-center gap-3 rounded-sm border border-border bg-surface-2 px-4 py-3 text-sm text-text-2">
+        <Repeat className="size-4 shrink-0 text-text-3" strokeWidth={2} />
+        <span>
+          <strong className="font-semibold text-text">
+            Use {fmtWeight(ex.targetWeight)} lb again
+          </strong>{" "}
+          — you&apos;re still working through the rep range.
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="mb-3 flex items-center gap-3 rounded-sm border border-border bg-surface-2 px-4 py-3 text-sm text-text-2">
+      <Flag className="size-4 shrink-0 text-text-3" strokeWidth={2} />
+      <span>
+        <strong className="font-semibold text-text">First session</strong> — choose a starting
+        weight you could lift for ~2 more reps at the top of the range.
+      </span>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------

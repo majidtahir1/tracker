@@ -1,17 +1,18 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 // The tracker is a server-rendered Next.js app, so the iOS shell loads the UI
-// from a running server rather than bundled files. During development, point
-// `server.url` at your Mac's LAN IP running `npm run dev`; for a standalone
-// build, point it at your hosted deployment (https) and remove `cleartext`.
+// from a running server rather than bundled files. Defaults to production;
+// for development run `CAP_DEV_SERVER=http://<mac-lan-ip>:3000 npx cap sync ios`
+// to point the shell at your local dev server (cleartext allowed there only).
+const devServer = process.env.CAP_DEV_SERVER;
+
 const config: CapacitorConfig = {
   appId: "com.majidtahir.tracker",
   appName: "Tracker",
   webDir: "public",
-  server: {
-    url: "http://192.168.1.229:3000",
-    cleartext: true,
-  },
+  server: devServer
+    ? { url: devServer, cleartext: true }
+    : { url: "https://progression.fit" },
   ios: {
     contentInset: "always",
   },
