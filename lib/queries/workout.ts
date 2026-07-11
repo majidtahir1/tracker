@@ -338,16 +338,20 @@ export async function getWorkoutOverview(overrideTemplateId?: string): Promise<W
   const activeProgram = settings?.activeProgramId
     ? await prisma.program.findUnique({ where: { id: settings.activeProgramId } })
     : null;
-  const templates = await prisma.workoutTemplate.findMany({
-      where: { programId: activeProgram?.id, isActive: true },
-      orderBy: [{ dayNumber: "asc" }, { sortOrder: "asc" }],
-      include: {
-        exercises: {
-          orderBy: { sortOrder: "asc" },
-          include: { exercise: true, blockOverrides: true },
+  // No active program means no suggestion — `programId: undefined` would drop
+  // the filter entirely and suggest templates from every program in the catalog.
+  const templates = activeProgram
+    ? await prisma.workoutTemplate.findMany({
+        where: { programId: activeProgram.id, isActive: true },
+        orderBy: [{ dayNumber: "asc" }, { sortOrder: "asc" }],
+        include: {
+          exercises: {
+            orderBy: { sortOrder: "asc" },
+            include: { exercise: true, blockOverrides: true },
+          },
         },
-      },
-    });
+      })
+    : [];
   const lastCompleted = await prisma.workoutSession.findFirst({
     where: { userId, status: "COMPLETED", template: { programId: activeProgram?.id } },
     orderBy: [{ date: "desc" }, { completedAt: "desc" }],

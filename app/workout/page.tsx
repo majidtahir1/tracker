@@ -179,8 +179,13 @@ export default async function WorkoutPage({
         !inProgress && (
           <EmptyState
             icon={Dumbbell}
-            title="Nothing on the schedule."
-            body="No active workout templates found for the coming week. Program v1.0 trains Mon, Tue, Thu, and Fri."
+            title="No active program."
+            body="Pick a program and your next workout will show up here — or start any workout directly from the program list below."
+            cta={
+              <ButtonLink href="/onboarding" size="sm">
+                Finish setup
+              </ButtonLink>
+            }
           />
         )
       )}
