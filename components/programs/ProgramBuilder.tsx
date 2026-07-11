@@ -441,15 +441,15 @@ export default function ProgramBuilder({ aiConfigured }: { aiConfigured: boolean
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,4fr)]">
-      <div className="flex flex-col gap-4 lg:sticky lg:top-8 lg:h-[calc(100dvh-4rem)] lg:self-start">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 pb-24 lg:grid-cols-[minmax(0,1fr)_minmax(0,4fr)] lg:pb-0">
+      <div className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-8 lg:h-[calc(100dvh-4rem)] lg:self-start">
         <Card className="flex max-h-[32rem] flex-col overflow-y-auto p-4 lg:max-h-none lg:min-h-0 lg:flex-1">
           <div className="space-y-4">
             {displayChat.map((turn, i) =>
               turn.role === "assistant" ? (
                 <div key={i} className="flex gap-2.5">
                   <Bot className="mt-0.5 size-4 shrink-0 text-accent" strokeWidth={2} />
-                  <p className="whitespace-pre-line text-sm leading-relaxed text-text">{turn.text}</p>
+                  <p className="min-w-0 whitespace-pre-line text-sm leading-relaxed text-text">{turn.text}</p>
                 </div>
               ) : (
                 <p key={i} className="ml-auto max-w-[85%] rounded-sm bg-surface-2 px-3 py-2 text-sm text-text">
@@ -478,7 +478,7 @@ export default function ProgramBuilder({ aiConfigured }: { aiConfigured: boolean
         {error && <p className="text-sm text-danger">{error}</p>}
 
         {draft && (
-          <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+          <div className="hidden flex-col gap-2 lg:flex">
             <Button size="lg" disabled={pending} onClick={() => finalize(true)} className="flex-1">
               <Check className="size-5" strokeWidth={2} /> Save &amp; make active
             </Button>
@@ -489,7 +489,21 @@ export default function ProgramBuilder({ aiConfigured }: { aiConfigured: boolean
         )}
       </div>
 
-      <div>
+      {/* Bottom sticky action bar (mobile) — mirrors the workout logger's bar. */}
+      {draft && (
+        <div className="fixed inset-x-0 bottom-14 z-30 border-t border-border bg-bg-subtle/90 px-4 py-2.5 backdrop-blur-md lg:hidden">
+          <div className="flex gap-2">
+            <Button disabled={pending} onClick={() => finalize(true)} className="flex-1">
+              <Check className="size-4" strokeWidth={2} /> Save &amp; make active
+            </Button>
+            <Button variant="subtle" disabled={pending} onClick={() => finalize(false)} className="flex-1">
+              Save to programs
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <div className="min-w-0">
         {draft && volumeByPhase && (
           <DraftPreview
             draft={draft}
