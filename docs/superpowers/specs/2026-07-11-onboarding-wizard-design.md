@@ -25,7 +25,7 @@ Signup provisioning silently assigns the starter program and a training block, s
 **1. "How do you want to train?"** — three choice cards:
 - **Keep the starter program** (recommended, preselected). Pitch built from live data: program name, days/week, exercise count, ~minutes per session. Makes the provisioning default an informed choice.
 - **Build it with the AI coach** — finish button routes to `/programs/new` afterward.
-- **Build it myself** — routes to the manual program builder afterward.
+- **Build it myself** — routes to `/programs` (the programs page, where days and exercises are edited) afterward.
 The choice never blocks the remaining steps; it only changes the final destination. Starter program stays active in all cases until a new program is saved as active.
 
 **2. Starting body weight** — one `lb` number input (30–1000 validated), saved as a `BodyMeasurement` for today (upsert on date). Skippable.
@@ -38,7 +38,7 @@ The choice never blocks the remaining steps; it only changes the final destinati
 - **`lib/onboarding.ts`:** `shouldOnboard(settings, completedCount): boolean` — pure, unit-tested.
 - **`lib/actions/onboarding.ts`:** `completeOnboarding(input: { bodyWeightLb: number | null })` — validates weight (or null), upserts today's `BodyMeasurement.weight` when present, stamps `onboardedAt`, revalidates `/`. Returns `{ ok }`. Also `skipOnboarding()` = same minus measurement.
 - **`app/onboarding/page.tsx`:** server component — requires auth; if already onboarded (or has completed sessions) redirects to `/`; loads starter-program stats (active program's template count, per-day exercise counts, est. minutes reusing the workout-overview estimate helper) and renders the wizard.
-- **`components/onboarding/OnboardingWizard.tsx`:** client component — step state, progress dots, per-step skip, global "Skip setup". Destination after completion: `/` (starter), `/programs/new` (AI), manual builder route (build myself).
+- **`components/onboarding/OnboardingWizard.tsx`:** client component — step state, progress dots, per-step skip, global "Skip setup". Destination after completion: `/` (starter), `/programs/new` (AI), `/programs` (build myself).
 - **Dashboard guard:** in `app/page.tsx`, after loading settings + completed count, `redirect("/onboarding")` when `shouldOnboard` says so.
 - **Signup redirect:** signup page's post-success navigation targets `/onboarding`.
 
