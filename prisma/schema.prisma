@@ -613,6 +613,8 @@ model AppSettings {
   userId                 String @unique
   user                   User    @relation("AppSettingsUser", fields: [userId], references: [id], onDelete: Cascade)
   activeProgramId        String?
+  /** ISO datetime when the first-run wizard was completed or skipped; null = show it. */
+  onboardedAt            String?
 }
 
 // Per-user exercise preferences over the shared catalog.

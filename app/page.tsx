@@ -25,12 +25,24 @@ import {
   MuscleVolumeChart,
   WeeklyVolumeChart,
 } from "@/components/dashboard/DashboardCharts";
+import { redirect } from "next/navigation";
+import { prisma } from "@/lib/db";
+import { requireUserId } from "@/lib/session";
+import { shouldOnboard } from "@/lib/onboarding";
 import { getDashboardData } from "@/lib/queries/dashboard";
 import { maybeAutoSync } from "@/lib/queries/whoop";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  // First-run wizard: only for accounts that never finished it and never trained.
+  const userId = await requireUserId();
+  const [settings, completedCount] = await Promise.all([
+    prisma.appSettings.findUnique({ where: { userId }, select: { onboardedAt: true } }),
+    prisma.workoutSession.count({ where: { userId, status: "COMPLETED" } }),
+  ]);
+  if (shouldOnboard(settings, completedCount)) redirect("/onboarding");
+
   await maybeAutoSync().catch(() => {});
   const data = await getDashboardData();
   const { position, stats } = data;

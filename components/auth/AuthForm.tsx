@@ -30,7 +30,8 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
       return;
     }
     // Full navigation so the root layout re-renders with the session.
-    window.location.href = "/";
+    // New accounts land on the first-run wizard; logins go to the dashboard.
+    window.location.href = mode === "signup" ? "/onboarding" : "/";
   }
 
   return (
