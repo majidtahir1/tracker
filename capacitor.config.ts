@@ -7,7 +7,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const devServer = process.env.CAP_DEV_SERVER;
 
 const config: CapacitorConfig = {
-  appId: "com.majidtahir.tracker",
+  appId: "fit.progression.app",
   appName: "Tracker",
   webDir: "public",
   server: devServer
