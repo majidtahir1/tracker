@@ -62,7 +62,7 @@ export default async function DashboardPage() {
 
       <CoachBriefCard />
 
-      <NextWorkoutCard next={data.nextWorkout} />
+      <NextWorkoutCard next={data.nextWorkout} isNewUser={!data.lastWorkout} />
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5 lg:gap-5">
         <StatCard

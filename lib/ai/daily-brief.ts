@@ -14,7 +14,7 @@ import { getWhoopDayContext } from "@/lib/queries/effective-recovery";
 import { callMiniMax, clip, type CoachBriefData } from "./dashboard-coach";
 
 const DAILY_BRIEF_SYSTEM_PROMPT =
-  "You are a direct, observant hypertrophy coach greeting an athlete at the start of their day. Using only the supplied facts: acknowledge yesterday (workout recap or rest), read today's WHOOP recovery and sleep conservatively (recovery below 40 or heavy sleep debt means advise backing off intensity today; 40-69 means manage load; 70+ is a green light), and tell them what's on tap today (the named workout, or rest). Close with genuine motivation — a short apt quote is welcome when recovery is decent, never when advising rest. No hype, no invented data, no medical advice. Return only JSON: {\"headline\":string,\"message\":string,\"encouragement\":string}. Keep the visible response under 80 words.";
+  "You are a direct, observant hypertrophy coach greeting an athlete at the start of their day. Using only the supplied facts: if a \"firstDay\" field is present, welcome them to their first day — no recap of yesterday, no talk of rest days or missing data; point them at today's workout and how to pick starting weights. Otherwise acknowledge yesterday (workout recap or rest). If a \"whoop\" block is present, read recovery and sleep conservatively (recovery below 40 or heavy sleep debt means advise backing off intensity today; 40-69 means manage load; 70+ is a green light); if there is no whoop block, never mention WHOOP, recovery scores, sleep, or syncing — the athlete does not track these. Tell them what's on tap today (the named workout, or rest). Close with genuine motivation — a short apt quote is welcome when recovery is decent, never when advising rest. No hype, no invented data, no medical advice. Return only JSON: {\"headline\":string,\"message\":string,\"encouragement\":string}. Keep the visible response under 80 words.";
 
 /** Short, non-cheesy training quotes for the deterministic path. */
 const QUOTES = [
@@ -48,12 +48,32 @@ export interface DailyBriefInputs {
   } | null;
   todayWorkout: { name: string; inProgress: boolean } | null;
   isDeloadWeek: boolean;
+  /** Any completed session ever — false means a brand-new user. */
+  hasHistory: boolean;
+  /** WHOOP integration exists; unconnected users never hear about recovery data. */
+  whoopConnected: boolean;
 }
 
 /** Pure composition — exported for tests. */
 export function composeDailyBrief(inputs: DailyBriefInputs): CoachBriefData {
+  // Brand-new user: welcome them. There is no yesterday and no baseline —
+  // recapping "rest" or missing WHOOP data would be inventing a past.
+  if (!inputs.hasHistory && !inputs.yesterday) {
+    const message = inputs.todayWorkout
+      ? `Your program starts with ${inputs.todayWorkout.name}. Weight targets appear once you've logged a session — today is about finding working weights: pick a load you could lift for about two more reps at the top of each range.`
+      : "Your program is set up and your first workout is waiting on the schedule. When you start it, pick weights you could lift for about two more reps at the top of each range — that becomes your baseline.";
+    return {
+      headline: clip("Welcome — day one starts now", 100),
+      message: clip(message, 600),
+      encouragement: clip("Every number you log today is a baseline you'll beat.", 220),
+      source: "deterministic",
+    };
+  }
+
   const band: RecoveryBand | null =
-    inputs.recoveryScore != null ? recoveryBand(inputs.recoveryScore) : null;
+    inputs.whoopConnected && inputs.recoveryScore != null
+      ? recoveryBand(inputs.recoveryScore)
+      : null;
 
   const headline =
     band === "fatigued"
@@ -74,14 +94,16 @@ export function composeDailyBrief(inputs: DailyBriefInputs): CoachBriefData {
   } else {
     parts.push("Yesterday was a rest day.");
   }
-  if (inputs.recoveryScore != null) {
-    const sleepBit =
-      inputs.sleepHours != null
-        ? ` on ${inputs.sleepHours}h of sleep${inputs.sleepPerformancePct != null ? ` (${inputs.sleepPerformancePct}%)` : ""}`
-        : "";
-    parts.push(`WHOOP has you at ${inputs.recoveryScore}% recovered${sleepBit}.`);
-  } else if (inputs.sleepHours != null) {
-    parts.push(`You slept ${inputs.sleepHours}h.`);
+  if (inputs.whoopConnected) {
+    if (inputs.recoveryScore != null) {
+      const sleepBit =
+        inputs.sleepHours != null
+          ? ` on ${inputs.sleepHours}h of sleep${inputs.sleepPerformancePct != null ? ` (${inputs.sleepPerformancePct}%)` : ""}`
+          : "";
+      parts.push(`WHOOP has you at ${inputs.recoveryScore}% recovered${sleepBit}.`);
+    } else if (inputs.sleepHours != null) {
+      parts.push(`You slept ${inputs.sleepHours}h.`);
+    }
   }
   if (inputs.todayWorkout) {
     parts.push(
@@ -170,19 +192,24 @@ export async function buildDailyBrief(userId: string, today: LocalDate): Promise
   }
 
   const yesterday = addDays(today, -1);
-  const [whoopDay, yesterdaySession, todayWorkout, block] = await Promise.all([
-    getWhoopDayContext(userId, today),
-    prisma.workoutSession.findFirst({
-      where: { userId, status: "COMPLETED", date: yesterday },
-      include: {
-        template: { select: { name: true } },
-        exercises: { include: { sets: { where: { completed: true }, select: { id: true } } } },
-      },
-      orderBy: { completedAt: "desc" },
-    }),
-    resolveTodayWorkout(userId, today),
-    prisma.trainingBlock.findFirst({ where: { userId }, orderBy: { cycleNumber: "desc" } }),
-  ]);
+  const [whoopDay, yesterdaySession, todayWorkout, block, whoopConnection, completedCount] =
+    await Promise.all([
+      getWhoopDayContext(userId, today),
+      prisma.workoutSession.findFirst({
+        where: { userId, status: "COMPLETED", date: yesterday },
+        include: {
+          template: { select: { name: true } },
+          exercises: { include: { sets: { where: { completed: true }, select: { id: true } } } },
+        },
+        orderBy: { completedAt: "desc" },
+      }),
+      resolveTodayWorkout(userId, today),
+      prisma.trainingBlock.findFirst({ where: { userId }, orderBy: { cycleNumber: "desc" } }),
+      prisma.whoopConnection.findUnique({ where: { userId }, select: { id: true } }),
+      prisma.workoutSession.count({ where: { userId, status: "COMPLETED" } }),
+    ]);
+  const whoopConnected = whoopConnection != null;
+  const hasHistory = completedCount > 0;
 
   const [prCount, deload] = await Promise.all([
     yesterdaySession
@@ -207,18 +234,28 @@ export async function buildDailyBrief(userId: string, today: LocalDate): Promise
       : null,
     todayWorkout: todayWorkout && !todayWorkout.completed ? todayWorkout : null,
     isDeloadWeek: deload,
+    hasHistory,
+    whoopConnected,
   };
 
   const context = {
     date: fmtDisplay(today),
-    whoop: {
-      recoveryScore: inputs.recoveryScore,
-      sleepHours: inputs.sleepHours,
-      sleepPerformancePct: inputs.sleepPerformancePct,
-      sleepDebtHours: whoopDay.sleep?.debtHours ?? null,
-      yesterdayStrain: whoopDay.yesterdayStrain,
-    },
-    yesterday: inputs.yesterday ?? "rest day",
+    // Omitted entirely for unconnected users — the coach must never mention
+    // WHOOP, recovery, or sleep data the athlete doesn't track.
+    ...(whoopConnected
+      ? {
+          whoop: {
+            recoveryScore: inputs.recoveryScore,
+            sleepHours: inputs.sleepHours,
+            sleepPerformancePct: inputs.sleepPerformancePct,
+            sleepDebtHours: whoopDay.sleep?.debtHours ?? null,
+            yesterdayStrain: whoopDay.yesterdayStrain,
+          },
+        }
+      : {}),
+    ...(hasHistory
+      ? { yesterday: inputs.yesterday ?? "rest day" }
+      : { firstDay: "This athlete has never logged a workout — welcome them to day one." }),
     today: inputs.todayWorkout
       ? { workout: inputs.todayWorkout.name, isDeloadWeek: inputs.isDeloadWeek }
       : "rest day",

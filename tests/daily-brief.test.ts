@@ -12,6 +12,8 @@ const base: DailyBriefInputs = {
   yesterday: { workoutName: "Upper A", totalSets: 18, totalVolume: 12450, prCount: 2 },
   todayWorkout: { name: "Lower A", inProgress: false },
   isDeloadWeek: false,
+  hasHistory: true,
+  whoopConnected: true,
 };
 
 test("recovered day: green-light headline, recap, workout, and a quote", () => {
@@ -51,6 +53,46 @@ test("in-progress session: nudges to finish", () => {
     todayWorkout: { name: "Lower A", inProgress: true },
   });
   assert.match(brief.message, /already underway/);
+});
+
+test("first-day user: welcome brief, no yesterday talk, no WHOOP talk", () => {
+  const brief = composeDailyBrief({
+    ...base,
+    recoveryScore: null,
+    sleepHours: null,
+    sleepPerformancePct: null,
+    yesterday: null,
+    hasHistory: false,
+    whoopConnected: false,
+  });
+  assert.match(brief.headline, /Welcome/i);
+  assert.match(brief.message, /Lower A/);
+  assert.doesNotMatch(brief.message, /yesterday|rest day/i);
+  assert.doesNotMatch(brief.message, /whoop/i);
+});
+
+test("first-day user with nothing scheduled still gets a welcome", () => {
+  const brief = composeDailyBrief({
+    ...base,
+    recoveryScore: null,
+    sleepHours: null,
+    sleepPerformancePct: null,
+    yesterday: null,
+    todayWorkout: null,
+    hasHistory: false,
+    whoopConnected: false,
+  });
+  assert.match(brief.headline, /Welcome/i);
+  assert.doesNotMatch(brief.message, /yesterday/i);
+});
+
+test("whoop never connected: recovery and sleep are never mentioned", () => {
+  const brief = composeDailyBrief({
+    ...base,
+    recoveryScore: 82, // even if stray data exists, an unconnected user never hears about it
+    whoopConnected: false,
+  });
+  assert.doesNotMatch(brief.message, /whoop|recovered|sleep/i);
 });
 
 test("pickQuote is deterministic per day key", () => {
