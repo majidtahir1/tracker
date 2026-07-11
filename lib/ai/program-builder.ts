@@ -361,15 +361,22 @@ export async function requestProgramDraft(
               content: `Your previous JSON failed validation:\n- ${lastErrors.join("\n- ")}\nReturn the corrected COMPLETE JSON only.`,
             },
           ];
+    const started = Date.now();
     const content = await callMiniMaxWithRetry(messages, deadline);
+    const secs = Math.round((Date.now() - started) / 1000);
     if (content == null) return { error: "The AI service is unavailable right now — try again in a minute." };
     const parsed = parseModelJson(content);
     if (!parsed) {
+      console.error(`program-builder: attempt ${attempt + 1} (${secs}s) returned non-JSON content (${content.length} chars)`);
       lastErrors = ["response was not a single valid JSON object"];
       continue;
     }
     const { draft, errors } = validateDraft(parsed.raw, catalog);
-    if (draft) return { message: parsed.message || "Here is the updated program.", draft };
+    if (draft) {
+      console.log(`program-builder: attempt ${attempt + 1} ok in ${secs}s`);
+      return { message: parsed.message || "Here is the updated program.", draft };
+    }
+    console.error(`program-builder: attempt ${attempt + 1} (${secs}s) failed validation:`, errors.slice(0, 12).join(" | "));
     lastErrors = errors.slice(0, 12);
   }
   return { error: `The AI returned an invalid program twice (${lastErrors[0] ?? "unknown error"}). Try rephrasing your request.` };
