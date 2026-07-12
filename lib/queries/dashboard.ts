@@ -55,6 +55,8 @@ export interface DashboardStats {
   recoverySource: "whoop" | "manual" | null;
   /** e1RM PRs this block on exercises with real history (see MIN_PR_HISTORY_DAYS). */
   prCountBlock: number;
+  /** PR tracking stays grayed out until every program workout has been completed once. */
+  prTrackingActive: boolean;
 }
 
 export interface ProgressionBadge {
@@ -283,7 +285,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     prisma.workoutSession.findMany({
       where: { userId, status: "COMPLETED" },
       orderBy: { date: "asc" },
-      select: { id: true, date: true, totalVolume: true, isDeload: true },
+      select: { id: true, date: true, totalVolume: true, isDeload: true, templateId: true },
     }),
     block
       ? prisma.personalRecord.findMany({
@@ -482,6 +484,9 @@ export async function getDashboardData(): Promise<DashboardData> {
     recoveryScore: latestRecovery.score,
     recoverySource: latestRecovery.source,
     prCountBlock: prsThisBlock,
+    prTrackingActive:
+      templates.length > 0 &&
+      templates.every((t) => completedSessions.some((s) => s.templateId === t.id)),
   };
 
   // ----- Last workout summary -----
