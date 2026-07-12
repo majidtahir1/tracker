@@ -39,7 +39,7 @@ export function progressionNotification(
     type: "PROGRESSION",
     title: `Increase ${args.exerciseName} next workout`,
     body: `All sets hit the top of the range. Load ${args.newWeight} lb next session.`,
-    href: "/workout/today",
+    href: "/workout",
     dedupeKey: `PROGRESSION:${args.templateExerciseId}:${args.nextSessionDate}`,
   };
 }

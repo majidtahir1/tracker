@@ -1,6 +1,6 @@
 /**
  * Next Workout hero card (DESIGN.md §4.1 item 3) — the visual anchor of the
- * dashboard. Server component; links to /workout/today (workout team's route).
+ * dashboard. Server component; links to /workout.
  */
 import Link from "next/link";
 import { Dumbbell, Play } from "lucide-react";
@@ -70,7 +70,7 @@ export default function NextWorkoutCard({
         )}
       </div>
       <div className="mt-5 shrink-0 lg:mt-0">
-        <ButtonLink href="/workout/today" size="lg" className="w-full sm:w-auto">
+        <ButtonLink href="/workout" size="lg" className="w-full sm:w-auto">
           <Play className="size-4" strokeWidth={2} />
           Start Workout
         </ButtonLink>
