@@ -11,8 +11,9 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Activity, ArrowRight, Check, Dumbbell, Scale, Sparkles, Wrench } from "lucide-react";
-import Button from "@/components/ui/Button";
+import Button, { buttonClasses } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import ConnectWearableButton from "@/components/recovery/ConnectWearableButton";
 import { completeOnboarding } from "@/lib/actions/onboarding";
 
 export interface StarterProgram {
@@ -179,24 +180,22 @@ export default function OnboardingWizard({ starter }: { starter: StarterProgram 
         <div className="space-y-3 pb-4">
           {last ? (
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button
-                size="lg"
-                disabled={pending}
-                onClick={() => finish({ connectWearable: "whoop" })}
-                className="flex-1"
+              <ConnectWearableButton
+                provider="whoop"
+                onContinue={() => finish({ connectWearable: "whoop" })}
+                className={`${buttonClasses("primary", "lg")} flex-1`}
               >
                 <Activity className="size-4" strokeWidth={2} />
                 Connect WHOOP
-              </Button>
-              <Button
-                size="lg"
-                disabled={pending}
-                onClick={() => finish({ connectWearable: "fitbit" })}
-                className="flex-1"
+              </ConnectWearableButton>
+              <ConnectWearableButton
+                provider="fitbit"
+                onContinue={() => finish({ connectWearable: "fitbit" })}
+                className={`${buttonClasses("primary", "lg")} flex-1`}
               >
                 <Activity className="size-4" strokeWidth={2} />
                 Connect Fitbit
-              </Button>
+              </ConnectWearableButton>
               <Button
                 size="lg"
                 variant="subtle"

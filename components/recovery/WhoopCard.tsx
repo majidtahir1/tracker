@@ -6,8 +6,8 @@
 import { Activity, AlertTriangle } from "lucide-react";
 import { SectionCard } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { buttonClasses } from "@/components/ui/Button";
 import WhoopSyncControls from "@/components/recovery/WhoopSyncControls";
+import ConnectWearableButton from "@/components/recovery/ConnectWearableButton";
 import type { WhoopStatus } from "@/lib/queries/whoop";
 import type { WhoopTodaySnapshot } from "@/lib/queries/tracking";
 
@@ -87,9 +87,7 @@ export default function WhoopCard({
               fallback.
             </p>
           </div>
-          <a href="/api/whoop/auth" className={buttonClasses("primary", "md")}>
-            Connect WHOOP
-          </a>
+          <ConnectWearableButton provider="whoop">Connect WHOOP</ConnectWearableButton>
         </div>
       </SectionCard>
     );
@@ -109,9 +107,9 @@ export default function WhoopCard({
             <AlertTriangle className="size-4 shrink-0" strokeWidth={2} />
             WHOOP authorization expired — reconnect to keep syncing.
           </span>
-          <a href="/api/whoop/auth" className={buttonClasses("ghost", "sm")}>
+          <ConnectWearableButton provider="whoop" variant="ghost" size="sm">
             Reconnect WHOOP
-          </a>
+          </ConnectWearableButton>
         </div>
       )}
 
