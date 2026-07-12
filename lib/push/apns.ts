@@ -235,6 +235,11 @@ export async function sendPushToUser(userId: string, msg: PushMessage): Promise<
             // Already gone — fine.
           });
         }
+        // Log every rejection — a silently swallowed 400/403 (wrong topic,
+        // bad key environment, expired provider token) is undebuggable.
+        if (status !== 200) {
+          console.error(`[apns] push rejected: status=${status} reason=${reason ?? "?"}`);
+        }
       } catch (err) {
         console.error("[apns] send failed", err);
       }
