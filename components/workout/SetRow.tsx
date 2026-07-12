@@ -47,13 +47,15 @@ function Stepper({
   };
 
   return (
-    <div className={dim ? "opacity-70" : ""}>
+    // min-w-0 lets the grid cell shrink below content size — without it the
+    // two steppers overflow the viewport on phones and force a side-scroll.
+    <div className={`min-w-0 ${dim ? "opacity-70" : ""}`}>
       <div className="mb-0.5 text-[10px] uppercase tracking-wider text-text-3">{label}</div>
       <div className="flex h-14 items-stretch overflow-hidden rounded-sm border border-border bg-surface-2">
         <button
           type="button"
           aria-label={`Decrease ${label}`}
-          className={`grid w-11 shrink-0 place-items-center text-text-3 transition-colors active:bg-surface-3 ${RING}`}
+          className={`grid w-9 shrink-0 place-items-center text-text-3 transition-colors active:bg-surface-3 sm:w-11 ${RING}`}
           onClick={() => commit(value - step)}
         >
           <Minus className="size-5" strokeWidth={2} />
@@ -68,14 +70,14 @@ function Stepper({
             else setText(fmtWeight(value));
           }}
           onFocus={(e) => e.target.select()}
-          className={`min-w-14 flex-1 border-0 bg-transparent text-center font-display text-xl font-semibold tabular-nums text-text transition-transform duration-150 focus:outline-none focus:ring-0 ${
+          className={`w-full min-w-0 flex-1 border-0 bg-transparent text-center font-display text-xl font-semibold tabular-nums text-text transition-transform duration-150 focus:outline-none focus:ring-0 ${
             pulse ? "scale-[1.06]" : "scale-100"
           }`}
         />
         <button
           type="button"
           aria-label={`Increase ${label}`}
-          className={`grid w-11 shrink-0 place-items-center text-text-3 transition-colors active:bg-surface-3 ${RING}`}
+          className={`grid w-9 shrink-0 place-items-center text-text-3 transition-colors active:bg-surface-3 sm:w-11 ${RING}`}
           onClick={() => commit(value + step)}
         >
           <Plus className="size-5" strokeWidth={2} />
