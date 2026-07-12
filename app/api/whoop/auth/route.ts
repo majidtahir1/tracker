@@ -1,10 +1,11 @@
 /**
- * GET /api/whoop/auth — start the WHOOP OAuth flow: stash a random state in
- * an httpOnly cookie and redirect to WHOOP's authorize page.
+ * GET /api/whoop/auth — start the WHOOP OAuth flow: bind a random state to
+ * the signed-in user (DB row, not a cookie — the callback may arrive in a
+ * different browser on mobile) and redirect to WHOOP's authorize page.
  */
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
+import { createOAuthState } from "@/lib/oauth-state";
 import {
   isWhoopConfigured,
   WHOOP_AUTHORIZE_URL,
@@ -23,14 +24,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/recovery?whoop=not_configured", request.url));
   }
 
-  const state = crypto.randomUUID();
-  const cookieStore = await cookies();
-  cookieStore.set("whoop_oauth_state", state, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 600, // 10 minutes
-  });
+  const state = await createOAuthState(session.user.id, "whoop");
 
   const url = new URL(WHOOP_AUTHORIZE_URL);
   url.searchParams.set("client_id", process.env.WHOOP_CLIENT_ID ?? "");

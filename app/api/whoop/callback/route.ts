@@ -1,12 +1,15 @@
 /**
- * GET /api/whoop/callback — WHOOP OAuth redirect target: verify state,
- * exchange the code, store the connection, run the initial sync, then land
- * the user back on /recovery.
+ * GET /api/whoop/callback — WHOOP OAuth redirect target. Works WITHOUT a
+ * session: the user is identified by the single-use state row created in
+ * /api/whoop/auth (on mobile this request arrives in Safari, which has no
+ * app session). Verify state, exchange the code, store the connection, run
+ * the initial sync, then land on /recovery (same-browser) or the public
+ * /connected page (session-less browser).
  */
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { consumeOAuthState } from "@/lib/oauth-state";
 import { WHOOP_API_BASE } from "@/lib/whoop/config";
 import { exchangeCode } from "@/lib/whoop/client";
 import { syncWhoop } from "@/lib/whoop/sync";
@@ -14,32 +17,25 @@ import type { WhoopProfile } from "@/lib/whoop/types";
 
 export const runtime = "nodejs";
 
-function recoveryRedirect(request: Request, status: string): NextResponse {
-  return NextResponse.redirect(new URL(`/recovery?whoop=${status}`, request.url));
+async function doneRedirect(request: Request, status: string): Promise<NextResponse> {
+  const session = await auth.api.getSession({ headers: request.headers });
+  const target = session ? `/recovery?whoop=${status}` : `/connected?provider=whoop&status=${status}`;
+  return NextResponse.redirect(new URL(target, request.url));
 }
 
 export async function GET(request: Request) {
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (!session) {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
-  const userId = session.user.id;
-
   const params = new URL(request.url).searchParams;
 
-  const cookieStore = await cookies();
-  const expectedState = cookieStore.get("whoop_oauth_state")?.value;
-  cookieStore.delete("whoop_oauth_state");
-
-  if (params.get("error")) return recoveryRedirect(request, "denied");
+  if (params.get("error")) return doneRedirect(request, "denied");
 
   const state = params.get("state");
-  if (!expectedState || !state || state !== expectedState) {
-    return recoveryRedirect(request, "state_mismatch");
-  }
+  const pending = state ? await consumeOAuthState(state, "whoop") : null;
+  if (!pending) return doneRedirect(request, "state_mismatch");
 
   const code = params.get("code");
-  if (!code) return recoveryRedirect(request, "error");
+  if (!code) return doneRedirect(request, "error");
+
+  const userId = pending.userId;
 
   try {
     const tokens = await exchangeCode(code);
@@ -69,11 +65,11 @@ export async function GET(request: Request) {
       update: data,
     });
   } catch {
-    return recoveryRedirect(request, "error");
+    return doneRedirect(request, "error");
   }
 
   // Initial backfill — awaited so the first page load already has data.
   await syncWhoop(userId, { force: true });
 
-  return recoveryRedirect(request, "connected");
+  return doneRedirect(request, "connected");
 }

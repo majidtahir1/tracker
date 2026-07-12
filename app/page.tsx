@@ -31,6 +31,7 @@ import { requireUserId } from "@/lib/session";
 import { shouldOnboard } from "@/lib/onboarding";
 import { getDashboardData } from "@/lib/queries/dashboard";
 import { maybeAutoSync } from "@/lib/queries/whoop";
+import { maybeAutoSyncFitbit } from "@/lib/queries/fitbit";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,7 @@ export default async function DashboardPage() {
   ]);
   if (shouldOnboard(settings, completedCount)) redirect("/onboarding");
 
-  await maybeAutoSync().catch(() => {});
+  await Promise.all([maybeAutoSync().catch(() => {}), maybeAutoSyncFitbit().catch(() => {})]);
   const data = await getDashboardData();
   const { position, stats } = data;
 
