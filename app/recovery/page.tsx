@@ -1,4 +1,5 @@
-import { BatteryLow, ChartLine, CheckCircle2, CircleAlert } from "lucide-react";
+import Link from "next/link";
+import { BatteryLow, ChartLine, Watch } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import EmptyState from "@/components/ui/EmptyState";
 import { SectionCard } from "@/components/ui/Card";
@@ -15,78 +16,25 @@ import { fmtDisplay, localToday } from "@/lib/dates";
 export const metadata = { title: "Recovery" };
 export const dynamic = "force-dynamic";
 
-const WHOOP_NOTICES: Record<string, { tone: "success" | "danger"; text: string }> = {
-  connected: { tone: "success", text: "WHOOP connected — syncing your recovery data now." },
-  denied: { tone: "danger", text: "WHOOP connection was denied — authorize access to sync." },
-  state_mismatch: {
-    tone: "danger",
-    text: "WHOOP connection failed a security check (state mismatch). Try connecting again.",
-  },
-  not_configured: {
-    tone: "danger",
-    text: "WHOOP isn't configured — set the env vars below, then connect.",
-  },
-  error: { tone: "danger", text: "WHOOP connection failed — try again." },
-};
-
-const FITBIT_NOTICES: Record<string, { tone: "success" | "danger"; text: string }> = {
-  connected: { tone: "success", text: "Fitbit connected — syncing your data now." },
-  denied: { tone: "danger", text: "Fitbit connection was denied — authorize access to sync." },
-  state_mismatch: {
-    tone: "danger",
-    text: "Fitbit connection failed a security check (state mismatch). Try connecting again.",
-  },
-  not_configured: {
-    tone: "danger",
-    text: "Fitbit isn't configured — set the env vars below, then connect.",
-  },
-  error: { tone: "danger", text: "Fitbit connection failed — try again." },
-};
-
-export default async function RecoveryPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ whoop?: string; fitbit?: string }>;
-}) {
+export default async function RecoveryPage() {
   await Promise.all([maybeAutoSync().catch(() => {}), maybeAutoSyncFitbit().catch(() => {})]);
 
   const today = localToday();
-  const [{ whoop: whoopParam, fitbit: fitbitParam }, whoopStatus, fitbitStatus, fitbitToday, data] =
-    await Promise.all([
-      searchParams,
-      getWhoopStatus(),
-      getFitbitStatus(),
-      getFitbitToday(),
-      getRecoveryData(today),
-    ]);
+  const [whoopStatus, fitbitStatus, fitbitToday, data] = await Promise.all([
+    getWhoopStatus(),
+    getFitbitStatus(),
+    getFitbitToday(),
+    getRecoveryData(today),
+  ]);
 
-  const notice =
-    (whoopParam ? (WHOOP_NOTICES[whoopParam] ?? null) : null) ??
-    (fitbitParam ? (FITBIT_NOTICES[fitbitParam] ?? null) : null);
   const whoopConnected = whoopStatus.configured && whoopStatus.connected;
+  const fitbitConnected = fitbitStatus.configured && fitbitStatus.connected;
   const hasTrendData = data.trend.some((p) => p.score != null);
   const trendHasWhoop = data.trend.some((p) => p.source === "whoop");
 
   return (
     <div className="space-y-8">
       <PageHeader title="Recovery" subtitle="Daily check-in and 0–100 recovery score." />
-
-      {notice && (
-        <div
-          className={`flex items-center gap-3 rounded-sm border px-4 py-3 text-sm ${
-            notice.tone === "success"
-              ? "border-success/25 bg-success-muted text-success"
-              : "border-danger/25 bg-danger-muted text-danger"
-          }`}
-        >
-          {notice.tone === "success" ? (
-            <CheckCircle2 className="size-5 shrink-0" strokeWidth={2} />
-          ) : (
-            <CircleAlert className="size-5 shrink-0" strokeWidth={2} />
-          )}
-          <span className="font-medium">{notice.text}</span>
-        </div>
-      )}
 
       {data.latestBand === "fatigued" && data.latestScore != null && (
         <div className="flex items-center gap-3 rounded-sm border border-danger/25 bg-danger-muted px-4 py-3 text-sm">
@@ -101,6 +49,19 @@ export default async function RecoveryPage({
               Progression recommendations flip to REDUCE below 40. Sleep first, lift lighter today.
             </span>
           </div>
+        </div>
+      )}
+
+      {!whoopConnected && !fitbitConnected && (
+        <div className="flex items-center gap-3 rounded-sm border border-dashed border-border px-4 py-3 text-sm text-text-3">
+          <Watch className="size-4 shrink-0" strokeWidth={2} />
+          <span>
+            Wear a WHOOP or Fitbit?{" "}
+            <Link href="/settings" className="font-medium text-accent hover:underline">
+              Connect it in Settings
+            </Link>{" "}
+            to sync recovery data automatically.
+          </span>
         </div>
       )}
 

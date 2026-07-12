@@ -18,7 +18,7 @@ export const runtime = "nodejs";
 async function doneRedirect(request: Request, status: string): Promise<NextResponse> {
   const session = await auth.api.getSession({ headers: request.headers });
   const target = session
-    ? `/recovery?fitbit=${status}`
+    ? `/settings?fitbit=${status}`
     : `/connected?provider=fitbit&status=${status}`;
   return NextResponse.redirect(new URL(target, request.url));
 }

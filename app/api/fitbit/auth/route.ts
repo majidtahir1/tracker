@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   }
 
   if (!isFitbitConfigured()) {
-    return NextResponse.redirect(new URL("/recovery?fitbit=not_configured", request.url));
+    return NextResponse.redirect(new URL("/settings?fitbit=not_configured", request.url));
   }
 
   const codeVerifier = randomBytes(32).toString("base64url");

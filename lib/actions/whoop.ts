@@ -9,7 +9,7 @@ import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/session";
 import { syncWhoop, type SyncResult } from "@/lib/whoop/sync";
 
-const WHOOP_PATHS = ["/recovery", "/", "/history", "/calendar", "/analytics"] as const;
+const WHOOP_PATHS = ["/recovery", "/", "/history", "/calendar", "/analytics", "/settings"] as const;
 
 function revalidateWhoopPaths(): void {
   for (const path of WHOOP_PATHS) revalidatePath(path);

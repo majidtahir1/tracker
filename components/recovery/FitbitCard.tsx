@@ -1,15 +1,11 @@
 /**
- * Fitbit integration card (recovery page). Server component — renders one of:
- * not configured / not connected / reauth required / connected with today's
- * metrics / connected but no data yet. Sync footer is a client island.
- * Unlike WHOOP, Fitbit has no recovery score — manual check-ins still drive
- * the daily 0–100 score; this card is context (RHR, HRV, sleep, steps).
+ * Fitbit data card (recovery page). Display-only: renders nothing unless
+ * connected; connection management lives in Settings → Integrations. Shows
+ * the latest day with data when the device hasn't uploaded today yet.
  */
-import { Activity, AlertTriangle } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
 import { SectionCard } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import FitbitSyncControls from "@/components/recovery/FitbitSyncControls";
-import ConnectWearableButton from "@/components/recovery/ConnectWearableButton";
 import type { FitbitStatus, FitbitTodaySnapshot } from "@/lib/queries/fitbit";
 import { fmtDisplay } from "@/lib/dates";
 
@@ -32,120 +28,67 @@ export default function FitbitCard({
   status: FitbitStatus;
   fitbitToday: FitbitTodaySnapshot | null;
 }) {
-  // a. Env vars missing — setup explainer.
-  if (!status.configured) {
-    return (
-      <SectionCard title="Fitbit">
-        <p className="text-sm text-text-2">
-          Pull resting heart rate, HRV, sleep, and activity from your Fitbit via the{" "}
-          <a
-            href="https://developers.google.com/health"
-            target="_blank"
-            rel="noreferrer"
-            className="font-medium text-accent hover:underline"
-          >
-            Google Health API
-          </a>
-          . Create an OAuth client in the Google Cloud Console (enable the Health API; add
-          yourself as a test user), then set these in{" "}
-          <code className="rounded-xs bg-surface-2 px-1 py-0.5 text-xs">.env</code>:
-        </p>
-        <ul className="mt-3 space-y-1 font-mono text-xs text-text-3">
-          <li>GOOGLE_HEALTH_CLIENT_ID</li>
-          <li>GOOGLE_HEALTH_CLIENT_SECRET</li>
-          <li>GOOGLE_HEALTH_REDIRECT_URI</li>
-        </ul>
-        <p className="mt-3 text-xs text-text-3">
-          The redirect URI must exactly match the one on your OAuth client — e.g.{" "}
-          <code className="rounded-xs bg-surface-2 px-1 py-0.5">
-            http://localhost:3000/api/fitbit/callback
-          </code>
-          .
-        </p>
-      </SectionCard>
-    );
-  }
-
-  // b. Configured but not connected — OAuth connect.
-  if (!status.connected) {
-    return (
-      <SectionCard title="Fitbit">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <Activity className="mt-0.5 size-5 shrink-0 text-text-3" strokeWidth={2} />
-            <p className="max-w-prose text-sm text-text-2">
-              Connect your Fitbit to sync resting heart rate, HRV, sleep, and activity
-              automatically. Manual check-ins keep driving the daily recovery score.
-            </p>
-          </div>
-          <ConnectWearableButton provider="fitbit">Connect Fitbit</ConnectWearableButton>
-        </div>
-      </SectionCard>
-    );
-  }
+  if (!status.configured || !status.connected) return null;
 
   return (
-    <SectionCard title="Fitbit" action={<Badge variant="success">Connected</Badge>}>
-      {/* e. Token expired/revoked — reconnect banner. */}
+    <SectionCard title="Fitbit">
       {status.reauthRequired && (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-sm border border-warning/25 bg-warning-muted px-4 py-3 text-sm">
-          <span className="inline-flex items-center gap-2 font-medium text-warning">
-            <AlertTriangle className="size-4 shrink-0" strokeWidth={2} />
-            Fitbit authorization expired — reconnect to keep syncing.
-          </span>
-          <ConnectWearableButton provider="fitbit" variant="ghost" size="sm">
-            Reconnect Fitbit
-          </ConnectWearableButton>
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-sm border border-warning/25 bg-warning-muted px-4 py-3 text-sm">
+          <AlertTriangle className="size-4 shrink-0 text-warning" strokeWidth={2} />
+          <span className="font-medium text-warning">Fitbit authorization expired.</span>
+          <Link href="/settings" className="font-medium text-accent hover:underline">
+            Reconnect in Settings
+          </Link>
         </div>
       )}
 
       {fitbitToday ? (
-        /* c. Connected with data — metrics grid (latest day when today is empty). */
         <div>
           {!fitbitToday.isToday && (
             <p className="mb-3 text-xs text-text-3">
               Latest data — {fmtDisplay(fitbitToday.date)}. Open the Fitbit app to sync your
-              device, then sync here.
+              device.
             </p>
           )}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Metric
-            label="Resting HR"
-            value={fitbitToday.restingHr != null ? String(fitbitToday.restingHr) : "—"}
-            unit={fitbitToday.restingHr != null ? "bpm" : undefined}
-          />
-          <Metric
-            label="HRV"
-            value={fitbitToday.hrvMs != null ? String(fitbitToday.hrvMs) : "—"}
-            unit={fitbitToday.hrvMs != null ? "ms" : undefined}
-          />
-          <Metric
-            label="Sleep"
-            value={fitbitToday.sleepHours != null ? `${fitbitToday.sleepHours}` : "—"}
-            unit={
-              fitbitToday.sleepHours != null
-                ? `h${
-                    fitbitToday.sleepEfficiency != null
-                      ? ` · ${fitbitToday.sleepEfficiency}%`
-                      : ""
-                  }`
-                : undefined
-            }
-          />
-          <Metric
-            label="Steps"
-            value={fitbitToday.steps != null ? fitbitToday.steps.toLocaleString("en-US") : "—"}
-          />
+            <Metric
+              label="Resting HR"
+              value={fitbitToday.restingHr != null ? String(fitbitToday.restingHr) : "—"}
+              unit={fitbitToday.restingHr != null ? "bpm" : undefined}
+            />
+            <Metric
+              label="HRV"
+              value={fitbitToday.hrvMs != null ? String(fitbitToday.hrvMs) : "—"}
+              unit={fitbitToday.hrvMs != null ? "ms" : undefined}
+            />
+            <Metric
+              label="Sleep"
+              value={fitbitToday.sleepHours != null ? `${fitbitToday.sleepHours}` : "—"}
+              unit={
+                fitbitToday.sleepHours != null
+                  ? `h${
+                      fitbitToday.sleepEfficiency != null
+                        ? ` · ${fitbitToday.sleepEfficiency}%`
+                        : ""
+                    }`
+                  : undefined
+              }
+            />
+            <Metric
+              label="Steps"
+              value={fitbitToday.steps != null ? fitbitToday.steps.toLocaleString("en-US") : "—"}
+            />
           </div>
         </div>
       ) : (
-        /* d. Connected but nothing synced for today yet. */
         <p className="text-sm text-text-3">
-          No Fitbit data for today yet — sync or check back after your Fitbit uploads.
+          No Fitbit data yet — open the Fitbit app to sync your device, or sync from{" "}
+          <Link href="/settings" className="font-medium text-accent hover:underline">
+            Settings
+          </Link>
+          .
         </p>
       )}
-
-      <FitbitSyncControls lastSyncedAt={status.lastSyncedAt} />
     </SectionCard>
   );
 }

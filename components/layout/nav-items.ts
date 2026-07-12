@@ -6,6 +6,7 @@ import {
   History,
   LayoutDashboard,
   Library,
+  Settings,
   Trophy,
   type LucideIcon,
 } from "lucide-react";
@@ -29,6 +30,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/records", label: "Records", icon: Trophy },
   { href: "/recovery", label: "Recovery", icon: HeartPulse },
   { href: "/analytics", label: "Analytics", icon: ChartLine },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 /** The 4 fixed mobile tabs (5th slot is "More"). */
