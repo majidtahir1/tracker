@@ -22,6 +22,11 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: "always",
   },
+  plugins: {
+    // Show pushes as banners even while the app is foregrounded — iOS
+    // suppresses them by default when the app is on screen.
+    PushNotifications: { presentationOptions: ["badge", "sound", "alert"] },
+  },
 };
 
 export default config;
