@@ -10,6 +10,7 @@ const PUBLIC_PATHS = new Set([
   "/connected",
   "/api/whoop/callback",
   "/api/fitbit/callback",
+  "/api/cron/notify", // bearer-token protected (CRON_SECRET), no session
 ]);
 
 export function proxy(request: NextRequest) {

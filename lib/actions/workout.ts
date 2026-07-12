@@ -34,6 +34,7 @@ import {
   planSlot,
 } from "@/lib/queries/workout";
 import type { FiredPr } from "@/components/workout/types";
+import { sendSessionPrPush } from "@/lib/push/events";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -445,6 +446,9 @@ export async function finishWorkout(sessionId: string): Promise<FinishResult> {
       totalVolume,
     },
   });
+
+  // Best-effort push with the session's meaningful e1RM PRs (never throws).
+  await sendSessionPrPush(userId, sessionId);
 
   revalidateWorkoutPaths(sessionId);
   return { ok: true, prs: fired };

@@ -6,6 +6,7 @@
  * Never log tokens.
  */
 import { prisma } from "@/lib/db";
+import { sendReauthPush } from "@/lib/push/events";
 import { GOOGLE_TOKEN_URL, HEALTH_API_BASE } from "@/lib/fitbit/config";
 import type { GhaDataPointList, GoogleTokenResponse } from "@/lib/fitbit/types";
 
@@ -75,11 +76,13 @@ async function refreshTokens(connection: FitbitConnectionRow): Promise<FitbitCon
   } catch (err) {
     if (err instanceof FitbitAuthError) {
       // Also hit when a Testing-mode consent screen expires refresh tokens
-      // after 7 days — the card's reconnect banner covers it.
+      // after 7 days — the reconnect banner covers it in-app.
       await prisma.fitbitConnection.update({
         where: { id: connection.id },
         data: { lastSyncError: "reauth_required" },
       });
+      // One push per incident: expiresAt stays frozen until a reconnect.
+      await sendReauthPush(connection.userId, "fitbit", String(connection.expiresAt.getTime()));
     }
     throw err;
   }
