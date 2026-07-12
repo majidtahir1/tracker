@@ -32,7 +32,6 @@ import type {
   BodyWeightPoint,
   ConsistencyPoint,
   E1rmPoint,
-  FrequencyPoint,
   MuscleVolumePoint,
   WeeklyVolumePoint,
 } from "@/lib/queries/dashboard";
@@ -168,35 +167,6 @@ export function MuscleVolumeChart({ data }: { data: MuscleVolumePoint[] }) {
           radius={[4, 4, 0, 0]}
         />
         <Bar {...ct.barProps(ct.colors.volt)} dataKey="actual" name="Actual" />
-      </BarChart>
-    </ResponsiveContainer>
-  );
-}
-
-// ---------- Workout frequency (sessions per week, target 4) ----------
-
-export function FrequencyChart({ data }: { data: FrequencyPoint[] }) {
-  const ct = useChartTheme();
-  if (data.length === 0) {
-    return (
-      <ChartEmpty
-        title="No sessions yet."
-        body="The program schedules 4 sessions a week — completions land here."
-      />
-    );
-  }
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data} margin={CHART_MARGIN} barCategoryGap={BAR_CATEGORY_GAP}>
-        <CartesianGrid {...ct.gridProps} />
-        <XAxis dataKey="label" {...ct.axisProps} />
-        <YAxis {...ct.yAxisProps} width={28} domain={[0, 5]} allowDecimals={false} />
-        <Tooltip
-          cursor={ct.tooltipCursor}
-          content={<ChartTooltip formatter={(v) => `${v} sessions`} />}
-        />
-        <ReferenceLine y={4} {...ct.targetLineProps} />
-        <Bar {...ct.barProps(ct.colors.teal)} dataKey="sessions" name="Sessions" />
       </BarChart>
     </ResponsiveContainer>
   );
