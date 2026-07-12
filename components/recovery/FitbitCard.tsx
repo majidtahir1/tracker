@@ -8,8 +8,8 @@
 import { Activity, AlertTriangle } from "lucide-react";
 import { SectionCard } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { buttonClasses } from "@/components/ui/Button";
 import FitbitSyncControls from "@/components/recovery/FitbitSyncControls";
+import ConnectWearableButton from "@/components/recovery/ConnectWearableButton";
 import type { FitbitStatus, FitbitTodaySnapshot } from "@/lib/queries/fitbit";
 import { fmtDisplay } from "@/lib/dates";
 
@@ -78,9 +78,7 @@ export default function FitbitCard({
               automatically. Manual check-ins keep driving the daily recovery score.
             </p>
           </div>
-          <a href="/api/fitbit/auth" className={buttonClasses("primary", "md")}>
-            Connect Fitbit
-          </a>
+          <ConnectWearableButton provider="fitbit">Connect Fitbit</ConnectWearableButton>
         </div>
       </SectionCard>
     );
@@ -95,9 +93,9 @@ export default function FitbitCard({
             <AlertTriangle className="size-4 shrink-0" strokeWidth={2} />
             Fitbit authorization expired — reconnect to keep syncing.
           </span>
-          <a href="/api/fitbit/auth" className={buttonClasses("ghost", "sm")}>
+          <ConnectWearableButton provider="fitbit" variant="ghost" size="sm">
             Reconnect Fitbit
-          </a>
+          </ConnectWearableButton>
         </div>
       )}
 
