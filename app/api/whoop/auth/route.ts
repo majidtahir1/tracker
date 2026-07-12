@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   }
 
   if (!isWhoopConfigured()) {
-    return NextResponse.redirect(new URL("/recovery?whoop=not_configured", request.url));
+    return NextResponse.redirect(new URL("/settings?whoop=not_configured", request.url));
   }
 
   const state = await createOAuthState(session.user.id, "whoop");

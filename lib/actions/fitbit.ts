@@ -9,7 +9,7 @@ import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/session";
 import { syncFitbit, type SyncResult } from "@/lib/fitbit/sync";
 
-const FITBIT_PATHS = ["/recovery", "/", "/history", "/calendar", "/analytics"] as const;
+const FITBIT_PATHS = ["/recovery", "/", "/history", "/calendar", "/analytics", "/settings"] as const;
 
 function revalidateFitbitPaths(): void {
   for (const path of FITBIT_PATHS) revalidatePath(path);

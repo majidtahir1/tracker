@@ -19,7 +19,7 @@ export const runtime = "nodejs";
 
 async function doneRedirect(request: Request, status: string): Promise<NextResponse> {
   const session = await auth.api.getSession({ headers: request.headers });
-  const target = session ? `/recovery?whoop=${status}` : `/connected?provider=whoop&status=${status}`;
+  const target = session ? `/settings?whoop=${status}` : `/connected?provider=whoop&status=${status}`;
   return NextResponse.redirect(new URL(target, request.url));
 }
 
