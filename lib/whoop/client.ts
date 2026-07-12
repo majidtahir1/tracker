@@ -5,6 +5,7 @@
  * Never log tokens.
  */
 import { prisma } from "@/lib/db";
+import { sendReauthPush } from "@/lib/push/events";
 import { WHOOP_API_BASE, WHOOP_TOKEN_URL } from "@/lib/whoop/config";
 import type { WhoopPage, WhoopTokenResponse } from "@/lib/whoop/types";
 
@@ -74,6 +75,8 @@ async function refreshTokens(connection: WhoopConnectionRow): Promise<WhoopConne
         where: { id: connection.id },
         data: { lastSyncError: "reauth_required" },
       });
+      // One push per incident: expiresAt stays frozen until a reconnect.
+      await sendReauthPush(connection.userId, "whoop", String(connection.expiresAt.getTime()));
     }
     throw err;
   }

@@ -5,8 +5,12 @@
  */
 import { CheckCircle2, CircleAlert } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
+import { SectionCard } from "@/components/ui/Card";
 import WhoopIntegrationCard from "@/components/settings/WhoopIntegrationCard";
 import FitbitIntegrationCard from "@/components/settings/FitbitIntegrationCard";
+import NotificationSettingsCard from "@/components/settings/NotificationSettingsCard";
+import { prisma } from "@/lib/db";
+import { requireUserId } from "@/lib/session";
 import { getWhoopStatus, maybeAutoSync } from "@/lib/queries/whoop";
 import { getFitbitStatus, maybeAutoSyncFitbit } from "@/lib/queries/fitbit";
 
@@ -36,8 +40,18 @@ export default async function SettingsPage({
 }) {
   await Promise.all([maybeAutoSync().catch(() => {}), maybeAutoSyncFitbit().catch(() => {})]);
 
-  const [{ whoop: whoopParam, fitbit: fitbitParam }, whoopStatus, fitbitStatus] =
-    await Promise.all([searchParams, getWhoopStatus(), getFitbitStatus()]);
+  const userId = await requireUserId();
+  const [{ whoop: whoopParam, fitbit: fitbitParam }, whoopStatus, fitbitStatus, appSettings, deviceCount] =
+    await Promise.all([
+      searchParams,
+      getWhoopStatus(),
+      getFitbitStatus(),
+      prisma.appSettings.findUnique({
+        where: { userId },
+        select: { notifyMorningBrief: true, notifyStreakSaver: true },
+      }),
+      prisma.pushToken.count({ where: { userId } }),
+    ]);
 
   const notice =
     (whoopParam ? (notices("WHOOP")[whoopParam] ?? null) : null) ??
@@ -76,6 +90,24 @@ export default async function SettingsPage({
         </div>
         <WhoopIntegrationCard status={whoopStatus} />
         <FitbitIntegrationCard status={fitbitStatus} />
+      </section>
+
+      <section className="space-y-5">
+        <div>
+          <h2 className="font-display text-lg font-semibold tracking-tight text-text">
+            Notifications
+          </h2>
+          <p className="mt-1 text-sm text-text-3">Push notifications to the iOS app.</p>
+        </div>
+        <SectionCard title="Push notifications">
+          <NotificationSettingsCard
+            initial={{
+              notifyMorningBrief: appSettings?.notifyMorningBrief ?? true,
+              notifyStreakSaver: appSettings?.notifyStreakSaver ?? true,
+            }}
+            deviceRegistered={deviceCount > 0}
+          />
+        </SectionCard>
       </section>
     </div>
   );

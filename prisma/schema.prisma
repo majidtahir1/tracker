@@ -443,6 +443,19 @@ model Notification {
   @@index([userId])
 }
 
+// One row per push actually sent — the idempotency ledger for push delivery
+// (cron re-runs and event replays must never re-notify the same thing).
+
+model PushSent {
+  id        String   @id @default(cuid())
+  dedupeKey String
+  sentAt    DateTime @default(now())
+  userId    String
+  user      User     @relation("PushSentUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+}
+
 // Device tokens for APNs push delivery (iOS app via Capacitor). Dormant
 // scaffold: rows are written once the client registers, but nothing pushes
 // until APNs env vars are configured (see lib/push/apns.ts).
@@ -706,6 +719,9 @@ model AppSettings {
   deloadWeightPct        Float   @default(0.825) // 80-85% -> midpoint
   photoReminderDay       Int     @default(1) // day of month
   measurementReminderDay Int     @default(1)
+  /// Push notification toggles (PR + reconnect pushes are always on).
+  notifyMorningBrief     Boolean @default(true)
+  notifyStreakSaver      Boolean @default(true)
   userId                 String @unique
   user                   User    @relation("AppSettingsUser", fields: [userId], references: [id], onDelete: Cascade)
   activeProgramId        String?
@@ -748,6 +764,7 @@ model User {
   goals              Goal[]              @relation("GoalUser")
   notifications      Notification[]      @relation("NotificationUser")
   pushTokens         PushToken[]         @relation("PushTokenUser")
+  pushSents          PushSent[]          @relation("PushSentUser")
   coachBriefs        CoachBrief[]        @relation("CoachBriefUser")
   dailyBriefs        DailyBrief[]        @relation("DailyBriefUser")
   substitutionEvents SubstitutionEvent[] @relation("SubstitutionEventUser")
