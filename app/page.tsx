@@ -91,7 +91,16 @@ export default async function DashboardPage() {
           icon={HeartPulse}
           valueClassName={recoveryClass}
         />
-        <StatCard label="PRs This Block" value={String(stats.prCountBlock)} icon={Trophy} />
+        <StatCard
+          label="PRs This Block"
+          value={String(stats.prCountBlock)}
+          icon={Trophy}
+          trend={
+            stats.prCountBlock === 0
+              ? { direction: "neutral", label: "e1RM records — a lift counts after 3 sessions" }
+              : undefined
+          }
+        />
         <StatCard
           label="Week Streak"
           value={String(stats.streakWeeks)}
