@@ -1,11 +1,21 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
+// OAuth callbacks and the post-OAuth landing page must work without a
+// session: on mobile the flow finishes in Safari, not the app's webview.
+// Callbacks identify the user via the single-use DB state (lib/oauth-state).
+const PUBLIC_PATHS = new Set([
+  "/login",
+  "/signup",
+  "/connected",
+  "/api/whoop/callback",
+  "/api/fitbit/callback",
+]);
+
 export function proxy(request: NextRequest) {
-  const isAuthPage =
-    request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/signup";
+  const isPublic = PUBLIC_PATHS.has(request.nextUrl.pathname);
   const hasSession = Boolean(getSessionCookie(request));
-  if (!hasSession && !isAuthPage) {
+  if (!hasSession && !isPublic) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
   return NextResponse.next();

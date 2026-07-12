@@ -601,6 +601,102 @@ model WhoopWorkout {
   @@index([userId])
 }
 
+// Pending OAuth flow state, bound to the user server-side so callbacks can
+// identify the user without a session cookie (mobile: the flow may finish in
+// a different browser than it started in). Single-use, expires after 10 min.
+
+model OAuthState {
+  state        String   @id // unguessable UUID from the auth route
+  provider     String // "whoop" | "fitbit"
+  codeVerifier String? // PKCE verifier (fitbit/Google flow)
+  createdAt    DateTime @default(now())
+  userId       String
+  user         User     @relation("OAuthStateUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ---------- Fitbit integration (via the Google Health API) ----------
+// Typed mirrors of Google Health API data types (Fitbit data), keyed by the
+// API's own data-point ids for idempotent upserts. `date` is the local
+// YYYY-MM-DD day the record belongs to (sleep wake day; activity start day;
+// daily metrics day). Tokens are Google OAuth tokens.
+
+model FitbitConnection {
+  id            String    @id @default(cuid())
+  fitbitUserId  String?
+  accessToken   String
+  refreshToken  String
+  expiresAt     DateTime
+  scope         String?
+  lastSyncedAt  DateTime?
+  lastSyncError String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  userId        String    @unique
+  user          User      @relation("FitbitConnectionUser", fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Sleep log (naps flagged via isMainSleep=false, excluded from daily rollups).
+
+model FitbitSleep {
+  id            String   @id // Fitbit sleep logId
+  date          String // YYYY-MM-DD, Fitbit's dateOfSleep (wake day)
+  start         DateTime
+  end           DateTime
+  isNap         Boolean  @default(false) // !isMainSleep
+  efficiency    Int? // Fitbit 0-100 sleep efficiency
+  minutesAsleep Int?
+  minutesAwake  Int?
+  timeInBedMin  Int?
+  lightMin      Int? // stage summaries; null for "classic" logs
+  deepMin       Int?
+  remMin        Int?
+  wakeMin       Int?
+  userId        String
+  user          User     @relation("FitbitSleepUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([date])
+  @@index([userId])
+}
+
+// Logged/auto-detected exercise; read-only context alongside logged lifting.
+
+model FitbitActivity {
+  id           String   @id // Fitbit activity logId
+  date         String // YYYY-MM-DD of start time
+  start        DateTime
+  end          DateTime
+  activityName String
+  durationMin  Int?
+  calories     Int?
+  steps        Int?
+  distance     Float?
+  distanceUnit String? // e.g. "Kilometer"
+  avgHeartRate Int?
+  userId       String
+  user         User     @relation("FitbitActivityUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([date])
+  @@index([userId])
+}
+
+// One row per user per day: resting HR, HRV, and steps time-series values.
+
+model FitbitDaily {
+  id               String @id @default(cuid())
+  date             String // YYYY-MM-DD
+  restingHeartRate Int?
+  hrvDailyRmssd    Float? // ms
+  hrvDeepRmssd     Float? // ms
+  steps            Int?
+  userId           String
+  user             User   @relation("FitbitDailyUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([date])
+}
+
 // ---------- App settings (single row, id="singleton") ----------
 
 model AppSettings {
@@ -660,6 +756,11 @@ model User {
   whoopSleeps        WhoopSleep[]        @relation("WhoopSleepUser")
   whoopWorkouts      WhoopWorkout[]      @relation("WhoopWorkoutUser")
   whoopConnection    WhoopConnection?    @relation("WhoopConnectionUser")
+  fitbitSleeps       FitbitSleep[]       @relation("FitbitSleepUser")
+  fitbitActivities   FitbitActivity[]    @relation("FitbitActivityUser")
+  fitbitDailies      FitbitDaily[]       @relation("FitbitDailyUser")
+  fitbitConnection   FitbitConnection?   @relation("FitbitConnectionUser")
+  oauthStates        OAuthState[]        @relation("OAuthStateUser")
   appSettings        AppSettings?        @relation("AppSettingsUser")
   exercisePrefs      UserExercisePref[]  @relation("UserExercisePrefUser")
 

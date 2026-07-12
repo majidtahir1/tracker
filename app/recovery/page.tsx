@@ -6,8 +6,10 @@ import ChartCard from "@/components/ui/ChartCard";
 import RecoveryForm from "@/components/recovery/RecoveryForm";
 import RecoveryTrendChart from "@/components/recovery/RecoveryTrendChart";
 import WhoopCard from "@/components/recovery/WhoopCard";
+import FitbitCard from "@/components/recovery/FitbitCard";
 import { getRecoveryData } from "@/lib/queries/tracking";
 import { getWhoopStatus, maybeAutoSync } from "@/lib/queries/whoop";
+import { getFitbitStatus, getFitbitToday, maybeAutoSyncFitbit } from "@/lib/queries/fitbit";
 import { fmtDisplay, localToday } from "@/lib/dates";
 
 export const metadata = { title: "Recovery" };
@@ -27,21 +29,40 @@ const WHOOP_NOTICES: Record<string, { tone: "success" | "danger"; text: string }
   error: { tone: "danger", text: "WHOOP connection failed — try again." },
 };
 
+const FITBIT_NOTICES: Record<string, { tone: "success" | "danger"; text: string }> = {
+  connected: { tone: "success", text: "Fitbit connected — syncing your data now." },
+  denied: { tone: "danger", text: "Fitbit connection was denied — authorize access to sync." },
+  state_mismatch: {
+    tone: "danger",
+    text: "Fitbit connection failed a security check (state mismatch). Try connecting again.",
+  },
+  not_configured: {
+    tone: "danger",
+    text: "Fitbit isn't configured — set the env vars below, then connect.",
+  },
+  error: { tone: "danger", text: "Fitbit connection failed — try again." },
+};
+
 export default async function RecoveryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ whoop?: string }>;
+  searchParams: Promise<{ whoop?: string; fitbit?: string }>;
 }) {
-  await maybeAutoSync().catch(() => {});
+  await Promise.all([maybeAutoSync().catch(() => {}), maybeAutoSyncFitbit().catch(() => {})]);
 
   const today = localToday();
-  const [{ whoop: whoopParam }, whoopStatus, data] = await Promise.all([
-    searchParams,
-    getWhoopStatus(),
-    getRecoveryData(today),
-  ]);
+  const [{ whoop: whoopParam, fitbit: fitbitParam }, whoopStatus, fitbitStatus, fitbitToday, data] =
+    await Promise.all([
+      searchParams,
+      getWhoopStatus(),
+      getFitbitStatus(),
+      getFitbitToday(),
+      getRecoveryData(today),
+    ]);
 
-  const notice = whoopParam ? (WHOOP_NOTICES[whoopParam] ?? null) : null;
+  const notice =
+    (whoopParam ? (WHOOP_NOTICES[whoopParam] ?? null) : null) ??
+    (fitbitParam ? (FITBIT_NOTICES[fitbitParam] ?? null) : null);
   const whoopConnected = whoopStatus.configured && whoopStatus.connected;
   const hasTrendData = data.trend.some((p) => p.score != null);
   const trendHasWhoop = data.trend.some((p) => p.source === "whoop");
@@ -84,6 +105,8 @@ export default async function RecoveryPage({
       )}
 
       <WhoopCard status={whoopStatus} whoopToday={data.whoopToday} />
+
+      <FitbitCard status={fitbitStatus} fitbitToday={fitbitToday} />
 
       <div className="grid gap-5 lg:grid-cols-2">
         <SectionCard
