@@ -19,7 +19,7 @@ export default function LastWorkoutCard({ last }: { last: LastWorkoutInfo | null
           title="No sets logged yet."
           body="First session's the baseline. Start Monday's Push workout and it lands here."
           cta={
-            <ButtonLink href="/workout/today" size="sm">
+            <ButtonLink href="/workout" size="sm">
               Start Workout
             </ButtonLink>
           }
