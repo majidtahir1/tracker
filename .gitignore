@@ -58,3 +58,6 @@ next-env.d.ts
 
 # private progress-photo storage (dev)
 /var/
+
+# Root credentials for web03 — never commit.
+cred
