@@ -1,13 +1,4 @@
-import {
-  BarChart3,
-  BatteryLow,
-  Dumbbell,
-  Flame,
-  HeartPulse,
-  Percent,
-  Scale,
-  Trophy,
-} from "lucide-react";
+import { BarChart3, Flame, HeartPulse, Scale, Trophy } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import ChartCard from "@/components/ui/ChartCard";
@@ -21,7 +12,6 @@ import {
   BodyWeightChart,
   ConsistencyChart,
   E1rmChart,
-  FrequencyChart,
   MuscleVolumeChart,
   WeeklyVolumeChart,
 } from "@/components/dashboard/DashboardCharts";
@@ -86,43 +76,13 @@ export default async function DashboardPage() {
           trend={stats.bodyWeight?.trend ?? undefined}
         />
         <StatCard
-          label="Weekly Avg"
-          value={stats.weeklyAvgWeight ?? "—"}
-          unit={stats.weeklyAvgWeight ? "lb" : undefined}
-          icon={Scale}
-        />
-        <StatCard
-          label="Est Body Fat"
-          value={stats.bodyFat ?? "—"}
-          unit={stats.bodyFat ? "%" : undefined}
-          icon={Percent}
-        />
-        <StatCard
-          label="Nutrition Today"
-          value={stats.caloriesToday != null ? stats.caloriesToday.toLocaleString("en-US") : "—"}
-          unit={stats.caloriesToday != null ? "kcal" : undefined}
-          icon={Flame}
-          trend={{
-            direction: "neutral",
-            label:
-              stats.proteinToday != null
-                ? `${stats.proteinToday} / ${stats.proteinTargetG} g protein`
-                : `0 / ${stats.proteinTargetG} g protein`,
-          }}
-        />
-        <StatCard label="Total Workouts" value={String(stats.totalWorkouts)} icon={Dumbbell} />
-        <StatCard
-          label="Week Streak"
-          value={String(stats.streakWeeks)}
-          unit={stats.streakWeeks === 1 ? "wk" : "wks"}
-          icon={Flame}
-        />
-        <StatCard
-          label="Volume This Week"
+          label="Tonnage This Week"
           value={stats.volumeThisWeek.value.toLocaleString("en-US")}
           unit="lb"
           icon={BarChart3}
-          trend={stats.volumeThisWeek.trend ?? undefined}
+          trend={
+            stats.volumeThisWeek.trend ?? { direction: "neutral", label: "weight × reps, all sets" }
+          }
         />
         <StatCard
           label={stats.recoverySource === "whoop" ? "Recovery · WHOOP" : "Recovery"}
@@ -133,11 +93,10 @@ export default async function DashboardPage() {
         />
         <StatCard label="PRs This Block" value={String(stats.prCountBlock)} icon={Trophy} />
         <StatCard
-          label="Deload"
-          value={stats.isDeload ? "NOW" : String(stats.deloadInDays)}
-          unit={stats.isDeload ? undefined : "days"}
-          icon={BatteryLow}
-          valueClassName={stats.isDeload ? "text-info" : "text-text"}
+          label="Week Streak"
+          value={String(stats.streakWeeks)}
+          unit={stats.streakWeeks === 1 ? "wk" : "wks"}
+          icon={Flame}
         />
       </div>
 
@@ -160,8 +119,8 @@ export default async function DashboardPage() {
           <E1rmChart data={data.charts.e1rm} />
         </ChartCard>
         <ChartCard
-          title="Weekly Volume"
-          legend={[{ label: "Total load (lb)", colorVar: "--color-chart-1" }]}
+          title="Weekly Tonnage"
+          legend={[{ label: "Weight × reps (lb)", colorVar: "--color-chart-1" }]}
         >
           <WeeklyVolumeChart data={data.charts.weeklyVolume} />
         </ChartCard>
@@ -170,12 +129,6 @@ export default async function DashboardPage() {
           legend={[{ label: "Actual", colorVar: "--color-chart-1" }]}
         >
           <MuscleVolumeChart data={data.charts.muscleVolume} />
-        </ChartCard>
-        <ChartCard
-          title="Workout Frequency"
-          legend={[{ label: "Sessions / week", colorVar: "--color-chart-6" }]}
-        >
-          <FrequencyChart data={data.charts.frequency} />
         </ChartCard>
         <ChartCard
           title="Consistency"

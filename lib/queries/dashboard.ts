@@ -28,7 +28,7 @@ import {
 } from "@/lib/volume";
 import { getLatestEffectiveRecovery } from "@/lib/queries/effective-recovery";
 import { recommendProgression, type PriorSet } from "@/lib/progression";
-import { consecutiveWeeks, SESSIONS_PER_WEEK, type WeekSessions } from "@/lib/streaks";
+import { consecutiveWeeks, SESSIONS_PER_WEEK, weekComplete, type WeekSessions } from "@/lib/streaks";
 import {
   NOTIFICATIONS_ENABLED,
   scheduleNotifications,
@@ -47,21 +47,14 @@ export interface TrendInfo {
 
 export interface DashboardStats {
   bodyWeight: { value: string; trend: TrendInfo | null } | null;
-  weeklyAvgWeight: string | null;
-  bodyFat: string | null;
-  caloriesToday: number | null;
-  proteinToday: number | null;
-  proteinTargetG: number;
-  calorieTarget: number;
-  totalWorkouts: number;
   streakWeeks: number;
+  /** Tonnage (weight × reps over all completed sets) this ISO week. */
   volumeThisWeek: { value: number; trend: TrendInfo | null };
   recoveryScore: number | null;
   /** Where the effective recovery score came from, for the tile badge. */
   recoverySource: "whoop" | "manual" | null;
+  /** e1RM PRs this block on exercises with real history (see MIN_PR_HISTORY_DAYS). */
   prCountBlock: number;
-  deloadInDays: number;
-  isDeload: boolean;
 }
 
 export interface ProgressionBadge {
@@ -120,11 +113,6 @@ export interface MuscleVolumePoint {
   target: number;
 }
 
-export interface FrequencyPoint {
-  label: string;
-  sessions: number;
-}
-
 export interface ConsistencyPoint {
   label: string;
   pct: number;
@@ -150,7 +138,6 @@ export interface DashboardData {
     e1rm: E1rmPoint[];
     weeklyVolume: WeeklyVolumePoint[];
     muscleVolume: MuscleVolumePoint[];
-    frequency: FrequencyPoint[];
     consistency: ConsistencyPoint[];
   };
   notifications: DashboardNotification[];
@@ -206,6 +193,54 @@ function pctTrend(current: number, previous: number | null, goodWhenUp: boolean,
   };
 }
 
+/** An exercise needs this many earlier training days before its PRs count. */
+const MIN_PR_HISTORY_DAYS = 3;
+
+/**
+ * Count block e1RM PRs, ignoring the cold-start storm: with little history
+ * every session mints "records", so a PR only counts once its exercise has
+ * been trained on at least MIN_PR_HISTORY_DAYS distinct earlier days.
+ */
+async function countMeaningfulPrs(
+  userId: string,
+  prs: Array<{ exerciseId: string; date: string }>,
+): Promise<number> {
+  if (prs.length === 0) return 0;
+
+  const exerciseIds = [...new Set(prs.map((p) => p.exerciseId))];
+  const setLogs = await prisma.setLog.findMany({
+    where: {
+      completed: true,
+      sessionExercise: {
+        exerciseId: { in: exerciseIds },
+        session: { userId, status: "COMPLETED" },
+      },
+    },
+    select: {
+      sessionExercise: { select: { exerciseId: true, session: { select: { date: true } } } },
+    },
+  });
+
+  const daysByExercise = new Map<string, Set<string>>();
+  for (const log of setLogs) {
+    const { exerciseId, session } = log.sessionExercise;
+    let days = daysByExercise.get(exerciseId);
+    if (!days) {
+      days = new Set();
+      daysByExercise.set(exerciseId, days);
+    }
+    days.add(session.date);
+  }
+
+  return prs.filter((pr) => {
+    const days = daysByExercise.get(pr.exerciseId);
+    if (!days) return false;
+    let earlier = 0;
+    for (const day of days) if (day < pr.date) earlier++;
+    return earlier >= MIN_PR_HISTORY_DAYS;
+  }).length;
+}
+
 // ---------- Main entry ----------
 
 export async function getDashboardData(): Promise<DashboardData> {
@@ -236,16 +271,14 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   const [
     measurements,
-    nutritionToday,
     latestRecovery,
     completedSessions,
-    prsThisBlock,
+    blockE1rmPrs,
   ] = await Promise.all([
     prisma.bodyMeasurement.findMany({
       where: { userId, weight: { not: null }, date: { gte: addDays(today, -90) } },
       orderBy: { date: "asc" },
     }),
-    prisma.nutritionLog.findFirst({ where: { userId, date: today } }),
     getLatestEffectiveRecovery(userId, today),
     prisma.workoutSession.findMany({
       where: { userId, status: "COMPLETED" },
@@ -253,9 +286,13 @@ export async function getDashboardData(): Promise<DashboardData> {
       select: { id: true, date: true, totalVolume: true, isDeload: true },
     }),
     block
-      ? prisma.personalRecord.count({ where: { userId, date: { gte: block.startDate } } })
-      : Promise.resolve(0),
+      ? prisma.personalRecord.findMany({
+          where: { userId, date: { gte: block.startDate }, type: "BEST_E1RM" },
+          select: { exerciseId: true, date: true },
+        })
+      : Promise.resolve([]),
   ]);
+  const prsThisBlock = await countMeaningfulPrs(userId, blockE1rmPrs);
 
   // ----- Next workout + progression recommendations -----
   let nextWorkout: NextWorkoutInfo | null = null;
@@ -345,9 +382,10 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   // ----- Notification generation (idempotent) -----
   if (NOTIFICATIONS_ENABLED && block && position && settings) {
-    const [photoCount, measurementCount] = await Promise.all([
+    const [photoCount, measurementCount, nutritionToday] = await Promise.all([
       prisma.progressPhoto.count({ where: { userId, date: { startsWith: monthKey(today) } } }),
       prisma.bodyMeasurement.count({ where: { userId, date: { startsWith: monthKey(today) } } }),
+      prisma.nutritionLog.findFirst({ where: { userId, date: today } }),
     ]);
     const candidates: NotificationCandidate[] = scheduleNotifications(userId, {
       today,
@@ -400,7 +438,6 @@ export async function getDashboardData(): Promise<DashboardData> {
   const thisWeekAvg = avg(thisWeekWeights);
   const prevWeekAvg = avg(prevWeekWeights);
 
-  const latestBodyFat = [...measurements].reverse().find((m) => m.bodyFat != null)?.bodyFat ?? null;
 
   const volumeThisWeek = completedSessions
     .filter((s) => s.date >= weekStart)
@@ -409,17 +446,20 @@ export async function getDashboardData(): Promise<DashboardData> {
     .filter((s) => s.date >= prevWeekStart && s.date < weekStart)
     .reduce((sum, s) => sum + s.totalVolume, 0);
 
-  // Streak over fully elapsed weeks since the block started.
+  // Streak over weeks since the block started. The in-progress week joins
+  // the streak as soon as it hits the session target — "0 wks" after
+  // training 4× this week reads as broken.
   const weeks: WeekSessions[] = [];
   if (block) {
-    for (let ws = block.startDate; addDays(ws, 6) < today && ws < weekStart; ws = addDays(ws, 7)) {
+    for (let ws = block.startDate; ws <= weekStart; ws = addDays(ws, 7)) {
       const weekEnd = addDays(ws, 6);
-      weeks.push({
+      const week: WeekSessions = {
         weekStart: ws,
         sessions: completedSessions
           .filter((s) => s.date >= ws && s.date <= weekEnd)
           .map(() => ({ status: "COMPLETED" as const })),
-      });
+      };
+      if (ws < weekStart || weekComplete(week)) weeks.push(week);
     }
   }
   const streakWeeks = consecutiveWeeks(weeks);
@@ -434,13 +474,6 @@ export async function getDashboardData(): Promise<DashboardData> {
               : null,
         }
       : null,
-    weeklyAvgWeight: thisWeekAvg != null ? fmtWeight(thisWeekAvg) : null,
-    bodyFat: latestBodyFat != null ? latestBodyFat.toFixed(1) : null,
-    caloriesToday: nutritionToday?.calories ?? null,
-    proteinToday: nutritionToday?.protein ?? null,
-    proteinTargetG: settings?.proteinTargetG ?? 180,
-    calorieTarget: settings?.calorieTarget ?? 2800,
-    totalWorkouts: completedSessions.length,
     streakWeeks,
     volumeThisWeek: {
       value: Math.round(volumeThisWeek),
@@ -449,8 +482,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     recoveryScore: latestRecovery.score,
     recoverySource: latestRecovery.source,
     prCountBlock: prsThisBlock,
-    deloadInDays: position?.deloadInDays ?? 0,
-    isDeload: position?.isDeload ?? false,
   };
 
   // ----- Last workout summary -----
@@ -541,9 +572,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     .sort((a, b) => (a.date < b.date ? -1 : 1))
     .map(({ date: _date, ...rest }) => rest);
 
-  // Weekly volume + frequency + consistency, one row per week since block start.
+  // Weekly volume + consistency, one row per week since block start.
   const weeklyVolume: WeeklyVolumePoint[] = [];
-  const frequency: FrequencyPoint[] = [];
   const consistency: ConsistencyPoint[] = [];
   if (block) {
     for (let ws = block.startDate; ws <= weekStart; ws = addDays(ws, 7)) {
@@ -554,7 +584,6 @@ export async function getDashboardData(): Promise<DashboardData> {
         label,
         volume: Math.round(inWeek.reduce((sum, s) => sum + s.totalVolume, 0)),
       });
-      frequency.push({ label, sessions: inWeek.length });
       consistency.push({
         label,
         pct: Math.round(Math.min((inWeek.length / SESSIONS_PER_WEEK) * 100, 100)),
@@ -562,7 +591,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     }
   }
   const hasAnyVolume = weeklyVolume.some((w) => w.volume > 0);
-  const hasAnySessions = frequency.some((w) => w.sessions > 0);
+  const hasAnySessions = completedSessions.length > 0;
 
   // Muscle-group sets this week vs targets.
   const weekSetLogs = await prisma.setLog.findMany({
@@ -629,7 +658,6 @@ export async function getDashboardData(): Promise<DashboardData> {
       e1rm,
       weeklyVolume: hasAnyVolume ? weeklyVolume : [],
       muscleVolume: hasMuscleVolume ? muscleVolume : [],
-      frequency: hasAnySessions ? frequency : [],
       consistency: hasAnySessions ? consistency : [],
     },
     notifications,
