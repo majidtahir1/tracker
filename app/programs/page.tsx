@@ -34,6 +34,14 @@ export default async function ProgramsPage() {
       </Card>
       <CreateFromScratch />
     </div>
+    {programs.length > 0 && (
+      <div className="border-b border-border-faint pb-2">
+        <h2 className="font-display text-lg font-semibold tracking-tight text-text">
+          Your programs
+          <span className="ml-2 text-sm font-normal text-text-3">{programs.length}</span>
+        </h2>
+      </div>
+    )}
     {programs.map(program => <section key={program.id} className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
