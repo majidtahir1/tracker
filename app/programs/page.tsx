@@ -5,8 +5,9 @@ import Button from "@/components/ui/Button";
 import { ButtonLink } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import ProgramPhaseView from "@/components/programs/ProgramPhaseView";
+import CreateFromScratch from "@/components/programs/CreateFromScratch";
 import { getPrograms, programPhaseViewData } from "@/lib/queries/programs";
-import { activateProgram, addWorkout, createProgram } from "@/lib/actions/programs";
+import { activateProgram, addWorkout } from "@/lib/actions/programs";
 
 export const metadata = { title: "Programs" };
 export const dynamic = "force-dynamic";
@@ -14,13 +15,33 @@ export const dynamic = "force-dynamic";
 export default async function ProgramsPage() {
   const { programs, activeProgramId } = await getPrograms();
   return <div className="space-y-10">
-    <PageHeader title="Programs" subtitle="Choose a program and manage its ordered training days."
-      actions={<ButtonLink href="/programs/new"><Sparkles className="size-4" strokeWidth={2} /> AI Program Builder</ButtonLink>} />
-    <Card className="p-5"><form action={createProgram} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-      <Input name="name" placeholder="Program name" required />
-      <Input name="description" placeholder="Description (optional)" />
-      <Button>Create program</Button>
-    </form></Card>
+    <PageHeader title="Programs" subtitle="Choose a program and manage its ordered training days." />
+    <div className="space-y-3">
+      <Card className="flex flex-wrap items-center justify-between gap-4 p-5">
+        <div className="flex items-start gap-3">
+          <Sparkles className="mt-0.5 size-5 shrink-0 text-accent" strokeWidth={2} />
+          <div>
+            <h2 className="text-sm font-semibold text-text">Build a new program with the AI coach</h2>
+            <p className="mt-1 max-w-prose text-sm text-text-3">
+              Answer a few questions — goal, days per week, equipment, priority muscles — and get a
+              complete program you can refine in chat.
+            </p>
+          </div>
+        </div>
+        <ButtonLink href="/programs/new">
+          <Sparkles className="size-4" strokeWidth={2} /> Open AI Program Builder
+        </ButtonLink>
+      </Card>
+      <CreateFromScratch />
+    </div>
+    {programs.length > 0 && (
+      <div className="border-b border-border-faint pb-2">
+        <h2 className="font-display text-lg font-semibold tracking-tight text-text">
+          Your programs
+          <span className="ml-2 text-sm font-normal text-text-3">{programs.length}</span>
+        </h2>
+      </div>
+    )}
     {programs.map(program => <section key={program.id} className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
