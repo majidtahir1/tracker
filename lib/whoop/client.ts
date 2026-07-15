@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { sendReauthPush } from "@/lib/push/events";
 import { WHOOP_API_BASE, WHOOP_TOKEN_URL } from "@/lib/whoop/config";
 import type { WhoopPage, WhoopTokenResponse } from "@/lib/whoop/types";
+import { decryptToken, encryptToken, isEncryptedToken } from "@/lib/security/token-crypto";
 
 /** Thrown when WHOOP rejects our credentials — the user must reconnect. */
 export class WhoopAuthError extends Error {
@@ -28,7 +29,17 @@ type WhoopConnectionRow = NonNullable<
 
 /** The user's connection row, or null when WHOOP is not connected. */
 export async function getConnection(userId: string): Promise<WhoopConnectionRow | null> {
-  return prisma.whoopConnection.findUnique({ where: { userId } });
+  const row = await prisma.whoopConnection.findUnique({ where: { userId } });
+  if (!row) return null;
+  const accessToken = decryptToken(row.accessToken);
+  const refreshToken = decryptToken(row.refreshToken);
+  if ((!isEncryptedToken(row.accessToken) || !isEncryptedToken(row.refreshToken)) && process.env.OAUTH_TOKEN_ENCRYPTION_KEY) {
+    await prisma.whoopConnection.update({
+      where: { id: row.id },
+      data: { accessToken: encryptToken(accessToken), refreshToken: encryptToken(refreshToken) },
+    });
+  }
+  return { ...row, accessToken, refreshToken };
 }
 
 async function postToken(params: Record<string, string>): Promise<WhoopTokenResponse> {
@@ -80,15 +91,16 @@ async function refreshTokens(connection: WhoopConnectionRow): Promise<WhoopConne
     }
     throw err;
   }
-  return prisma.whoopConnection.update({
+  const updated = await prisma.whoopConnection.update({
     where: { id: connection.id },
     data: {
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
+      accessToken: encryptToken(tokens.access_token),
+      refreshToken: encryptToken(tokens.refresh_token),
       expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
       scope: tokens.scope ?? connection.scope,
     },
   });
+  return { ...updated, accessToken: tokens.access_token, refreshToken: tokens.refresh_token };
 }
 
 /** A valid access token for the user, refreshing first when close to expiry. */
