@@ -14,6 +14,7 @@ import { WHOOP_API_BASE } from "@/lib/whoop/config";
 import { exchangeCode } from "@/lib/whoop/client";
 import { syncWhoop } from "@/lib/whoop/sync";
 import type { WhoopProfile } from "@/lib/whoop/types";
+import { encryptToken } from "@/lib/security/token-crypto";
 
 export const runtime = "nodejs";
 
@@ -53,8 +54,8 @@ export async function GET(request: Request) {
 
     const data = {
       whoopUserId,
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
+      accessToken: encryptToken(tokens.access_token),
+      refreshToken: encryptToken(tokens.refresh_token),
       expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
       scope: tokens.scope ?? null,
       lastSyncError: null,

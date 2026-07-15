@@ -12,6 +12,7 @@ import { prisma } from "@/lib/db";
 import { consumeOAuthState } from "@/lib/oauth-state";
 import { exchangeCode } from "@/lib/fitbit/client";
 import { syncFitbit } from "@/lib/fitbit/sync";
+import { encryptToken } from "@/lib/security/token-crypto";
 
 export const runtime = "nodejs";
 
@@ -45,8 +46,8 @@ export async function GET(request: Request) {
 
     const data = {
       fitbitUserId: null,
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
+      accessToken: encryptToken(tokens.access_token),
+      refreshToken: encryptToken(tokens.refresh_token),
       expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
       scope: tokens.scope ?? null,
       lastSyncError: null,

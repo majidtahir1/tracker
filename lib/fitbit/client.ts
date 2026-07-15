@@ -9,6 +9,7 @@ import { prisma } from "@/lib/db";
 import { sendReauthPush } from "@/lib/push/events";
 import { GOOGLE_TOKEN_URL, HEALTH_API_BASE } from "@/lib/fitbit/config";
 import type { GhaDataPointList, GoogleTokenResponse } from "@/lib/fitbit/types";
+import { decryptToken, encryptToken, isEncryptedToken } from "@/lib/security/token-crypto";
 
 /** Thrown when Google rejects our credentials — the user must reconnect. */
 export class FitbitAuthError extends Error {
@@ -29,7 +30,17 @@ type FitbitConnectionRow = NonNullable<
 
 /** The user's connection row, or null when Google Health is not connected. */
 export async function getConnection(userId: string): Promise<FitbitConnectionRow | null> {
-  return prisma.fitbitConnection.findUnique({ where: { userId } });
+  const row = await prisma.fitbitConnection.findUnique({ where: { userId } });
+  if (!row) return null;
+  const accessToken = decryptToken(row.accessToken);
+  const refreshToken = decryptToken(row.refreshToken);
+  if ((!isEncryptedToken(row.accessToken) || !isEncryptedToken(row.refreshToken)) && process.env.OAUTH_TOKEN_ENCRYPTION_KEY) {
+    await prisma.fitbitConnection.update({
+      where: { id: row.id },
+      data: { accessToken: encryptToken(accessToken), refreshToken: encryptToken(refreshToken) },
+    });
+  }
+  return { ...row, accessToken, refreshToken };
 }
 
 async function postToken(params: Record<string, string>): Promise<GoogleTokenResponse> {
@@ -86,15 +97,17 @@ async function refreshTokens(connection: FitbitConnectionRow): Promise<FitbitCon
     }
     throw err;
   }
-  return prisma.fitbitConnection.update({
+  const refreshToken = tokens.refresh_token ?? connection.refreshToken;
+  const updated = await prisma.fitbitConnection.update({
     where: { id: connection.id },
     data: {
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token ?? connection.refreshToken,
+      accessToken: encryptToken(tokens.access_token),
+      refreshToken: encryptToken(refreshToken),
       expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
       scope: tokens.scope ?? connection.scope,
     },
   });
+  return { ...updated, accessToken: tokens.access_token, refreshToken };
 }
 
 /** A valid access token for the user, refreshing first when close to expiry. */
