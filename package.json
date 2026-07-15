@@ -39,5 +39,9 @@
     "tailwindcss": "^4",
     "tsx": "^4.22.5",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@hono/node-server": "^1.19.13",
+    "postcss": "^8.5.10"
   }
 }
