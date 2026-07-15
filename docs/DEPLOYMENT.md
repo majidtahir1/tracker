@@ -90,11 +90,11 @@ set the env var.
 ```bash
 docker compose build
 
-# First deploy: create the schema on the mounted volume DB.
+# First deploy: create the schema, seed immutable catalog data, then claim or
+# clone any pre-ownership records (the migration is safe to rerun).
 docker compose run --rm app npx prisma db push
-
-# Optional: seed the exercise catalog / starter data.
 docker compose run --rm app npm run db:seed
+docker compose run --rm app npm run db:migrate-security-ownership
 ```
 
 > `prisma db push` is also how you apply **schema changes on upgrades** — this
@@ -195,6 +195,8 @@ docker compose start app
 git pull
 docker compose build
 docker compose run --rm app npx prisma db push   # if schema changed
+docker compose run --rm app npm run db:seed
+docker compose run --rm app npm run db:migrate-security-ownership
 docker compose up -d
 ```
 

@@ -150,7 +150,7 @@ async function resolveTodayWorkout(
   const settings = await prisma.appSettings.findUnique({ where: { userId } });
   if (!settings?.activeProgramId) return null;
   const templates = await prisma.workoutTemplate.findMany({
-    where: { programId: settings.activeProgramId, isActive: true },
+    where: { programId: settings.activeProgramId, isActive: true, program: { ownerId: userId } },
     orderBy: [{ dayNumber: "asc" }, { sortOrder: "asc" }],
     select: { id: true, name: true },
   });

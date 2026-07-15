@@ -35,6 +35,7 @@ import {
 } from "@/lib/queries/workout";
 import type { FiredPr } from "@/components/workout/types";
 import { sendSessionPrPush } from "@/lib/push/events";
+import { isOwnedSlot, isOwnedWorkout, isVisibleExercise } from "@/lib/program-access";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -57,6 +58,7 @@ export async function startWorkout(formData: FormData): Promise<void> {
   const scheduleOverride = formData.get("scheduleOverride") === "today";
   if (!templateId || !DATE_RE.test(date))
     throw new Error("Invalid start request");
+  if (!(await isOwnedWorkout(userId, templateId))) throw new Error("Workout template not found");
 
   // Resume: an existing session for this template+date just flips to IN_PROGRESS.
   const existing = await prisma.workoutSession.findFirst({
@@ -474,12 +476,12 @@ export async function substituteExercise(input: {
   });
   if (!se || se.session.userId !== userId)
     return { ok: false, error: "Exercise not found" };
+  if (!(await isOwnedSlot(userId, se.templateExerciseId))) {
+    return { ok: false, error: "Program slot not found" };
+  }
   if (se.exerciseId === newExerciseId) return { ok: true };
 
-  const newExercise = await prisma.exercise.findUnique({
-    where: { id: newExerciseId },
-  });
-  if (!newExercise)
+  if (!(await isVisibleExercise(userId, newExerciseId)))
     return { ok: false, error: "Replacement exercise not found" };
 
   await prisma.$transaction([

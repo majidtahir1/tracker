@@ -10,6 +10,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { localToday } from "@/lib/dates";
 import { requireUserId } from "@/lib/session";
+import { isOwnedSlot, isVisibleExercise } from "@/lib/program-access";
 import {
   Difficulty,
   Equipment,
@@ -74,7 +75,7 @@ export async function updateExercise(
 
   try {
     await prisma.exercise.update({
-      where: { id },
+      where: { id, ownerId: userId },
       data: {
         notes,
         videoUrl,
@@ -101,7 +102,7 @@ export async function createExercise(
   _prev: ExerciseActionState,
   formData: FormData
 ): Promise<ExerciseActionState> {
-  await requireUserId();
+  const userId = await requireUserId();
   const name = String(formData.get("name") ?? "").trim();
   if (name.length < 2) return { ok: false, error: "Name must be at least 2 characters." };
 
@@ -144,6 +145,7 @@ export async function createExercise(
       injuryFriendly: formData.get("injuryFriendly") === "on",
       videoUrl,
       notes: String(formData.get("notes") ?? "").trim() || null,
+      ownerId: userId,
     },
   });
 
@@ -162,12 +164,16 @@ export async function substituteExercise(
   reason?: string
 ): Promise<ExerciseActionState> {
   const userId = await requireUserId();
+  if (!(await isOwnedSlot(userId, templateExerciseId))) {
+    return { ok: false, error: "Program slot not found." };
+  }
   const slot = await prisma.templateExercise.findUnique({ where: { id: templateExerciseId } });
   if (!slot) return { ok: false, error: "Program slot not found." };
   if (slot.exerciseId === newExerciseId) return { ok: false, error: "Already using that exercise." };
 
-  const newExercise = await prisma.exercise.findUnique({ where: { id: newExerciseId } });
-  if (!newExercise) return { ok: false, error: "Replacement exercise not found." };
+  if (!(await isVisibleExercise(userId, newExerciseId))) {
+    return { ok: false, error: "Replacement exercise not found." };
+  }
 
   await prisma.$transaction([
     prisma.templateExercise.update({

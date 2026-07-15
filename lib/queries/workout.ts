@@ -5,6 +5,7 @@
  */
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/session";
+import { visibleProgramWhere } from "@/lib/program-access";
 import { matchWhoopWorkout } from "@/lib/whoop/match";
 import {
   addDays,
@@ -241,6 +242,7 @@ export async function getProgramOverview(): Promise<{
   const [settings, programs] = await Promise.all([
     prisma.appSettings.findUnique({ where: { userId } }),
     prisma.program.findMany({
+      where: visibleProgramWhere(userId),
       orderBy: { createdAt: "asc" },
       include: {
         workouts: {
@@ -336,7 +338,7 @@ export async function getWorkoutOverview(overrideTemplateId?: string): Promise<W
   let next: NextWorkoutPreview | null = null;
   const settings = await prisma.appSettings.findUnique({ where: { userId } });
   const activeProgram = settings?.activeProgramId
-    ? await prisma.program.findUnique({ where: { id: settings.activeProgramId } })
+    ? await prisma.program.findFirst({ where: { id: settings.activeProgramId, ownerId: userId } })
     : null;
   // No active program means no suggestion — `programId: undefined` would drop
   // the filter entirely and suggest templates from every program in the catalog.
@@ -360,8 +362,8 @@ export async function getWorkoutOverview(overrideTemplateId?: string): Promise<W
   let template = templates[nextTemplateIndex(templates, lastCompleted?.templateId)];
   let isOverride = false;
   if (overrideTemplateId && overrideTemplateId !== template?.id) {
-    const overridden = await prisma.workoutTemplate.findUnique({
-      where: { id: overrideTemplateId },
+    const overridden = await prisma.workoutTemplate.findFirst({
+      where: { id: overrideTemplateId, program: { ownerId: userId } },
       include: {
         exercises: {
           orderBy: { sortOrder: "asc" },

@@ -10,6 +10,7 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:migrate-users": "tsx prisma/migrate-multi-user.ts",
+    "db:migrate-security-ownership": "tsx scripts/migrate-security-ownership.ts",
     "test": "TZ=America/New_York tsx --test tests/*.test.ts"
   },
   "dependencies": {

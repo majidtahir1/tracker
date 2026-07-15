@@ -115,6 +115,9 @@ model Exercise {
   weightIncrement  Float        @default(5)
   isBodyweight     Boolean      @default(false) // pull-ups, hanging knee raise
   createdAt        DateTime     @default(now())
+  isBuiltIn        Boolean      @default(false)
+  ownerId          String?
+  owner            User?        @relation("OwnedExerciseUser", fields: [ownerId], references: [id], onDelete: Cascade)
 
   templateSlots    TemplateExercise[]
   sessionExercises SessionExercise[]
@@ -124,6 +127,8 @@ model Exercise {
   subEventsOld     SubstitutionEvent[]   @relation("subOld")
   subEventsNew     SubstitutionEvent[]   @relation("subNew")
   prefs            UserExercisePref[]
+
+  @@index([ownerId])
 }
 
 // Curated "replacement exercises" list shown in the substitution picker.
@@ -145,7 +150,12 @@ model Program {
   name        String            @unique
   description String?
   createdAt   DateTime          @default(now())
+  isBuiltIn   Boolean           @default(false)
+  ownerId     String?
+  owner       User?             @relation("OwnedProgramUser", fields: [ownerId], references: [id], onDelete: Cascade)
   workouts    WorkoutTemplate[]
+
+  @@index([ownerId])
 }
 
 model WorkoutTemplate {
@@ -521,7 +531,7 @@ model WhoopConnection {
   lastSyncError String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  userId        String   @unique
+  userId        String    @unique
   user          User      @relation("WhoopConnectionUser", fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -722,10 +732,12 @@ model AppSettings {
   /// Push notification toggles (PR + reconnect pushes are always on).
   notifyMorningBrief     Boolean @default(true)
   notifyStreakSaver      Boolean @default(true)
-  userId                 String @unique
+  userId                 String  @unique
   user                   User    @relation("AppSettingsUser", fields: [userId], references: [id], onDelete: Cascade)
   activeProgramId        String?
-  /** ISO datetime when the first-run wizard was completed or skipped; null = show it. */
+  /**
+   * ISO datetime when the first-run wizard was completed or skipped; null = show it.
+   */
   onboardedAt            String?
 }
 
@@ -780,6 +792,8 @@ model User {
   oauthStates        OAuthState[]        @relation("OAuthStateUser")
   appSettings        AppSettings?        @relation("AppSettingsUser")
   exercisePrefs      UserExercisePref[]  @relation("UserExercisePrefUser")
+  ownedExercises     Exercise[]          @relation("OwnedExerciseUser")
+  ownedPrograms      Program[]           @relation("OwnedProgramUser")
 
   @@unique([email])
   @@unique([username])

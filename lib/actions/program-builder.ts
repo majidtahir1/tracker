@@ -22,6 +22,7 @@ import type {
   FinalizeResult,
 } from "@/lib/ai/program-builder-types";
 import type { ExerciseType } from "@/lib/generated/prisma/enums";
+import { visibleExerciseWhere } from "@/lib/program-access";
 
 const REST_BY_TYPE: Record<ExerciseType, number> = {
   HEAVY_COMPOUND: 180,
@@ -38,11 +39,12 @@ function rirForType(type: ExerciseType, beginner: boolean): { min: number; max: 
   return isolation ? { min: 0, max: 1 } : { min: 1, max: 2 };
 }
 
-async function loadCatalog(): Promise<{
+async function loadCatalog(userId: string): Promise<{
   list: CatalogExercise[];
   byName: Map<string, CatalogExercise>;
 }> {
   const list = await prisma.exercise.findMany({
+    where: visibleExerciseWhere(userId),
     orderBy: { name: "asc" },
     select: {
       name: true,
@@ -65,7 +67,7 @@ export async function runBuilderTurn(input: {
   userMessage: string | null;
 }): Promise<BuilderResult> {
   const user = await requireUser();
-  const { list, byName } = await loadCatalog();
+  const { list, byName } = await loadCatalog(user.id);
 
   const history: ChatTurn[] = [...input.history];
   if (history.length === 0) {
@@ -103,7 +105,7 @@ export async function finalizeDraftProgram(
   options: { activate: boolean; beginner: boolean },
 ): Promise<FinalizeResult> {
   const userId = await requireUserId();
-  const { byName } = await loadCatalog();
+  const { byName } = await loadCatalog(userId);
 
   // Re-validate shape defensively: the draft round-tripped through the client.
   if (!draft?.name || !Array.isArray(draft.days) || draft.days.length === 0) {
@@ -141,6 +143,7 @@ export async function finalizeDraftProgram(
               type: slot.newExercise.type,
               weightIncrement: slot.newExercise.type === "ISOLATION" ? 2.5 : 5,
               isBodyweight: slot.newExercise.equipment === "BODYWEIGHT",
+              ownerId: userId,
             },
           });
           exerciseIdByName.set(key, created.id);
@@ -149,7 +152,7 @@ export async function finalizeDraftProgram(
 
       // 2. Program + days + slots.
       const program = await tx.program.create({
-        data: { name, description: draft.description || null },
+        data: { name, description: draft.description || null, ownerId: userId },
       });
       const slotIdByDayAndName = new Map<string, string>();
       for (let di = 0; di < draft.days.length; di++) {

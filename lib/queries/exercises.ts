@@ -22,6 +22,7 @@ import type {
   Priority,
   PrType,
 } from "@/lib/generated/prisma/enums";
+import { visibleExerciseWhere } from "@/lib/program-access";
 
 // ---------- Library ----------
 
@@ -53,8 +54,9 @@ export async function getExerciseLibrary(): Promise<ExerciseListItem[]> {
   const userId = await requireUserId();
   const [exercises, prefs] = await Promise.all([
     prisma.exercise.findMany({
+      where: visibleExerciseWhere(userId),
       orderBy: { name: "asc" },
-      include: { templateSlots: { select: { priority: true } } },
+      include: { templateSlots: { where: { template: { program: { ownerId: userId } } }, select: { priority: true } } },
     }),
     prisma.userExercisePref.findMany({ where: { userId } }),
   ]);
@@ -163,13 +165,13 @@ function fmtSet(weight: number, reps: number): string {
 export async function getExerciseDetail(id: string): Promise<ExerciseDetail | null> {
   const userId = await requireUserId();
   const [exercise, pref] = await Promise.all([
-    prisma.exercise.findUnique({
-      where: { id },
+    prisma.exercise.findFirst({
+      where: { id, ...visibleExerciseWhere(userId) },
       include: {
         substitutionsA: { include: { alternative: true } },
         substitutionsB: { include: { exercise: true } },
         personalRecords: { where: { userId }, orderBy: { date: "desc" } },
-        templateSlots: { include: { template: true } },
+        templateSlots: { where: { template: { program: { ownerId: userId } } }, include: { template: true } },
       },
     }),
     prisma.userExercisePref.findUnique({ where: { userId_exerciseId: { userId, exerciseId: id } } }),
