@@ -660,6 +660,20 @@ model FitbitConnection {
   user          User      @relation("FitbitConnectionUser", fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// Persistent fixed-window counters for costly authenticated operations.
+model ActionRateLimit {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String
+  windowStart Int
+  count       Int      @default(1)
+  createdAt   DateTime @default(now())
+  user        User     @relation("ActionRateLimitUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, action, windowStart])
+  @@index([createdAt])
+}
+
 // Sleep log (naps flagged via isMainSleep=false, excluded from daily rollups).
 
 model FitbitSleep {
@@ -792,6 +806,7 @@ model User {
   oauthStates        OAuthState[]        @relation("OAuthStateUser")
   appSettings        AppSettings?        @relation("AppSettingsUser")
   exercisePrefs      UserExercisePref[]  @relation("UserExercisePrefUser")
+  actionRateLimits   ActionRateLimit[]   @relation("ActionRateLimitUser")
   ownedExercises     Exercise[]          @relation("OwnedExerciseUser")
   ownedPrograms      Program[]           @relation("OwnedProgramUser")
 

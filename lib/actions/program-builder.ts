@@ -23,6 +23,7 @@ import type {
 } from "@/lib/ai/program-builder-types";
 import type { ExerciseType } from "@/lib/generated/prisma/enums";
 import { visibleExerciseWhere } from "@/lib/program-access";
+import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 
 const REST_BY_TYPE: Record<ExerciseType, number> = {
   HEAVY_COMPOUND: 180,
@@ -67,6 +68,12 @@ export async function runBuilderTurn(input: {
   userMessage: string | null;
 }): Promise<BuilderResult> {
   const user = await requireUser();
+  try {
+    await enforceRateLimit(user.id, "ai:program-builder", 10, 60 * 60);
+  } catch (error) {
+    if (error instanceof RateLimitError) return { ok: false, error: error.message };
+    throw error;
+  }
   const { list, byName } = await loadCatalog(user.id);
 
   const history: ChatTurn[] = [...input.history];

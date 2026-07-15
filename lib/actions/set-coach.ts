@@ -7,12 +7,19 @@ import { getLatestEffectiveRecovery, getWhoopDayContext, toCoachWhoopContext } f
 import { calculateSetGuardrails, deterministicCoachResponse } from "@/lib/ai/set-coach-guardrails";
 import { requestMiniMaxCoach } from "@/lib/ai/set-coach-provider";
 import type { SetCoachResponse } from "@/lib/ai/set-coach-types";
+import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 
 export type SetCoachResult = { ok: true; advice: SetCoachResponse } | { ok: false; error: string };
 
 export async function askSetCoach(sessionExerciseId: string): Promise<SetCoachResult> {
   if (!sessionExerciseId) return { ok: false, error: "Exercise is required." };
   const userId = await requireUserId();
+  try {
+    await enforceRateLimit(userId, "ai:set-coach", 30, 60 * 60);
+  } catch (error) {
+    if (error instanceof RateLimitError) return { ok: false, error: error.message };
+    throw error;
+  }
   const se = await prisma.sessionExercise.findUnique({
     where: { id: sessionExerciseId },
     include: {

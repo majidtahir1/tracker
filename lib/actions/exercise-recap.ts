@@ -18,6 +18,7 @@ import {
 import { deterministicRecap } from "@/lib/ai/exercise-recap-fallback";
 import { requestMiniMaxRecap } from "@/lib/ai/exercise-recap-provider";
 import type { ExerciseRecapResponse } from "@/lib/ai/exercise-recap-types";
+import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 
 export type ExerciseRecapResult =
   | { ok: true; recap: ExerciseRecapResponse }
@@ -26,6 +27,12 @@ export type ExerciseRecapResult =
 export async function getExerciseRecap(sessionExerciseId: string): Promise<ExerciseRecapResult> {
   if (!sessionExerciseId) return { ok: false, error: "Exercise is required." };
   const userId = await requireUserId();
+  try {
+    await enforceRateLimit(userId, "ai:exercise-recap", 30, 60 * 60);
+  } catch (error) {
+    if (error instanceof RateLimitError) return { ok: false, error: error.message };
+    throw error;
+  }
   const se = await prisma.sessionExercise.findUnique({
     where: { id: sessionExerciseId },
     include: {
