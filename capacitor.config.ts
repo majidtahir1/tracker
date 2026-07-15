@@ -15,11 +15,13 @@ const config: CapacitorConfig = {
   appId: "fit.progression.app",
   appName: "Tracker",
   webDir: "dist-mobile",
+  backgroundColor: "#0A0B0D",
   server: devServer
     ? { url: devServer, cleartext: true, allowNavigation: OAUTH_HOSTS }
     : undefined,
   ios: {
     contentInset: "always",
+    zoomEnabled: false,
   },
   plugins: {
     // Show pushes as banners even while the app is foregrounded — iOS

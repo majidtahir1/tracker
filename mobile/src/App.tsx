@@ -11,10 +11,12 @@ import {
   Library,
   Loader2,
   LogOut,
+  Moon,
   RefreshCw,
   Settings,
   Shield,
   Sparkles,
+  Sun,
   Trophy,
   X,
 } from "lucide-react";
@@ -24,6 +26,7 @@ import { PushNotifications } from "@capacitor/push-notifications";
 import { API_URL, authorizedBlob, data, getSession, loadToken, post, request, saveToken, signIn, signOut, signUp, upload } from "./api";
 
 type View = "dashboard" | "workout" | "history" | "analytics" | "exercises" | "records" | "recovery" | "programs" | "photos" | "settings";
+type Theme = "light" | "dark";
 type User = { id: string; name: string; username?: string };
 type Json = Record<string, any>;
 type BuilderIntake = {
@@ -71,6 +74,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [view, setView] = useState<View>("dashboard");
   const [more, setMore] = useState(false);
+  const [theme, setTheme] = useState<Theme>(() => document.documentElement.dataset.theme === "light" ? "light" : "dark");
 
   useEffect(() => {
     void (async () => {
@@ -86,6 +90,13 @@ export default function App() {
     window.scrollTo(0, 0);
   }, [view]);
 
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    localStorage.setItem("progression_theme", theme);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#0A0B0D" : "#F7F8FA");
+  }, [theme]);
+
   if (booting) return <Centered><Loader2 className="spin" size={28} /></Centered>;
   if (!user) return <AuthScreen onAuthenticated={async () => setUser((await getSession()).user)} />;
 
@@ -99,7 +110,7 @@ export default function App() {
     recovery: <RecoveryScreen />,
     programs: <ProgramsScreen openSettings={() => setView("settings")} />,
     photos: <PhotosScreen />,
-    settings: <SettingsScreen user={user} onSignedOut={() => setUser(null)} />,
+    settings: <SettingsScreen user={user} theme={theme} onThemeChange={setTheme} onSignedOut={() => setUser(null)} />,
   };
 
   return (
@@ -184,19 +195,19 @@ function DashboardScreen({ openWorkout }: { openWorkout: () => void }) {
   return <Screen title="Today" eyebrow={d?.position ? `Cycle ${d.position.cycleNumber} · Week ${d.position.week} · Phase ${d.position.phase}` : "Training overview"}>
     <AsyncState loading={state.loading} error={state.error} />
     {d && <>
-      <div className="metric-grid">
-        <Metric label="Body weight" value={d.stats.bodyWeight?.value ? `${d.stats.bodyWeight.value} lb` : "—"} />
-        <Metric label="Weekly volume" value={`${Math.round(d.stats.volumeThisWeek.value / 1000)}k lb`} />
-        <Metric label="Recovery" value={d.stats.recoveryScore ?? "—"} accent />
-        <Metric label="PRs this block" value={d.stats.prCountBlock} />
-      </div>
       {d.coachBrief && <section className="panel coach-card">
         <div className="coach-label"><Bot size={17} /><span>{d.coachBrief.source === "minimax" ? "AI daily coach" : "Daily coach"}</span></div>
         <h2>{d.coachBrief.headline}</h2>
         <p>{d.coachBrief.message}</p>
         <blockquote>{d.coachBrief.encouragement}</blockquote>
       </section>}
-      {d.nextWorkout && <button className="panel action-panel" onClick={openWorkout}><div><span className="kicker">NEXT WORKOUT · {d.nextWorkout.dateLabel}</span><h2>{d.nextWorkout.templateName}</h2><p>{d.nextWorkout.exerciseCount} exercises · about {d.nextWorkout.estMinutes} min</p></div><ChevronRight /></button>}
+      {d.nextWorkout && <button className="panel action-panel dashboard-next" onClick={openWorkout}><div><span className="kicker">NEXT WORKOUT · {d.nextWorkout.dateLabel}</span><h2>{d.nextWorkout.templateName}</h2><p>{d.nextWorkout.exerciseCount} exercises · about {d.nextWorkout.estMinutes} min</p></div><ChevronRight /></button>}
+      <div className="metric-grid">
+        <Metric label="Body weight" value={d.stats.bodyWeight?.value ? `${d.stats.bodyWeight.value} lb` : "—"} />
+        <Metric label="Weekly volume" value={`${Math.round(d.stats.volumeThisWeek.value / 1000)}k lb`} />
+        <Metric label="Recovery" value={d.stats.recoveryScore ?? "—"} accent />
+        <Metric label="PRs this block" value={d.stats.prCountBlock} />
+      </div>
       {d.lastWorkout && <section><h2 className="section-title">Last workout</h2><div className="panel list-panel"><div className="list-row"><div><strong>{d.lastWorkout.templateName}</strong><small>{d.lastWorkout.dateLabel}</small></div><span>{Math.round(d.lastWorkout.totalVolume).toLocaleString()} lb</span></div>{d.lastWorkout.exercises.slice(0, 4).map((ex: Json) => <div className="list-row compact" key={ex.name}><span>{ex.name}</span><small>{ex.topSet}</small></div>)}</div></section>}
     </>}
   </Screen>;
@@ -481,7 +492,7 @@ function PhotosScreen() {
 
 function PhotoThumb({ photo }: { photo: Json }) { const [src, setSrc] = useState(""); useEffect(() => { let url = ""; void authorizedBlob(`/api/photos/${photo.id}`).then((blob) => { url = URL.createObjectURL(blob); setSrc(url); }); return () => { if (url) URL.revokeObjectURL(url); }; }, [photo.id]); return <div className="photo-thumb">{src ? <img src={src} alt={`${pretty(photo.angle || "progress")} progress`} /> : <Loader2 className="spin" size={18} />}<span>{pretty(photo.angle || "photo")}</span></div>; }
 
-function SettingsScreen({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
+function SettingsScreen({ user, theme, onThemeChange, onSignedOut }: { user: User; theme: Theme; onThemeChange: (theme: Theme) => void; onSignedOut: () => void }) {
   const state = useData("settings"); const d = state.value; const [deleteOpen, setDeleteOpen] = useState(false); const [password, setPassword] = useState(""); const [confirm, setConfirm] = useState(""); const [message, setMessage] = useState("");
   async function setConsent(enabled: boolean) { await post("/api/mobile/settings", { action: "aiConsent", enabled }); await state.reload(); }
   async function enablePush() {
@@ -491,7 +502,12 @@ function SettingsScreen({ user, onSignedOut }: { user: User; onSignedOut: () => 
     await PushNotifications.register();
   }
   async function remove() { await request("/api/auth/delete-user", { method: "POST", body: JSON.stringify({ password }) }); await saveToken(null); onSignedOut(); }
-  return <Screen title="Settings" eyebrow={user.username || user.name}><AsyncState loading={state.loading} error={state.error} />{d && <>
+  return <Screen title="Settings" eyebrow={user.username || user.name}>
+    <section className="panel settings-section"><h2>Appearance</h2><div className="theme-selector" aria-label="Color theme">
+      <button className={theme === "light" ? "active" : ""} aria-pressed={theme === "light"} onClick={() => onThemeChange("light")}><Sun size={16} />Light</button>
+      <button className={theme === "dark" ? "active" : ""} aria-pressed={theme === "dark"} onClick={() => onThemeChange("dark")}><Moon size={16} />Dark</button>
+    </div></section>
+    <AsyncState loading={state.loading} error={state.error} />{d && <>
     <section className="panel settings-section"><h2>Connected services</h2><SettingRow label="WHOOP" value={d.whoop.connected ? "Connected" : "Not connected"} /><SettingRow label="Google Health" value={d.fitbit.connected ? "Connected" : "Not connected"} /></section>
     <section className="panel settings-section"><h2>Permissions</h2><SettingToggle label="AI coaching" description="Send workout and connected recovery or sleep context to MiniMax for personalized coaching." checked={d.settings?.aiDataSharingEnabled === true} onChange={setConsent} /><button className="settings-command" onClick={enablePush}><span><strong>Push notifications</strong><small>Briefs, streak reminders, records, and reconnect alerts.</small></span><ChevronRight size={18} /></button>{message && <p className="notice">{message}</p>}</section>
     <section className="panel settings-section"><h2>Privacy and account</h2><button className="settings-command" onClick={() => window.open(`${API_URL}/privacy`, "_blank")}><span><strong>Privacy Policy</strong><small>Data use, retention, providers, and your choices.</small></span><Shield size={18} /></button>{!deleteOpen ? <button className="settings-command danger" onClick={() => setDeleteOpen(true)}><span><strong>Delete account</strong><small>Permanently remove your account and all stored data.</small></span><ChevronRight size={18} /></button> : <div className="delete-form"><strong>This cannot be undone</strong><p>Workouts, measurements, photos, wearable connections, tokens, and credentials will be deleted.</p><input type="password" placeholder="Confirm password" value={password} onChange={(e) => setPassword(e.target.value)} /><input placeholder="Type DELETE" value={confirm} onChange={(e) => setConfirm(e.target.value)} /><button className="button danger full" disabled={!password || confirm !== "DELETE"} onClick={remove}>Permanently delete account</button><button className="button secondary full" onClick={() => setDeleteOpen(false)}>Cancel</button></div>}</section>
