@@ -1,10 +1,10 @@
 # Deploying Tracker (home lab + iOS App Store)
 
-This is a **server-first Next.js app**. The iOS app is a thin Capacitor WKWebView
-that loads a **remote URL** — almost nothing is bundled into it. Every screen
-needs a running Node server with a writable SQLite database and local disk for
-photos. To ship on iOS you host the server, point the app at its HTTPS domain,
-and submit through Xcode/TestFlight.
+This is a Next.js web app/API plus a **locally bundled Capacitor client**. The
+iOS binary contains its React UI and calls the HTTPS backend with a bearer
+session. User data still requires the Node server, writable SQLite database,
+and private photo storage, but app startup and navigation do not depend on
+downloading a remote interface.
 
 - **Hosting model chosen:** Path 1 — keep SQLite, single always-on container on
   your home lab, behind your existing reverse proxy (which terminates TLS).
@@ -17,23 +17,24 @@ and submit through Xcode/TestFlight.
 ## Architecture at a glance
 
 ```
- iPhone (Capacitor WKWebView)                Home lab host
+ iPhone (bundled React + Capacitor)           Home lab host
  ┌───────────────────────────┐        ┌──────────────────────────────────────┐
- │ server.url =              │  HTTPS │  Reverse proxy (Traefik / NPM / Caddy) │
- │ https://tracker.dom.com   │ ─────► │  terminates TLS for tracker.dom.com    │
+ │ local dist-mobile assets  │  HTTPS │  Reverse proxy (Traefik / NPM / Caddy) │
+ │ bearer-auth API calls     │ ─────► │  terminates TLS for tracker.dom.com    │
  └───────────────────────────┘        │        │ http (loopback / proxy net)   │
                                        │        ▼                               │
                                        │  tracker container (next start :3000)  │
-                                       │   ├─ RSC pages + server actions        │
-                                       │   ├─ /api/auth, /api/photos, /api/whoop │
+                                       │   ├─ web pages + server actions        │
+                                       │   ├─ /api/auth, /api/mobile, /api/photos │
                                        │   ├─ /data/tracker.db   (volume)        │
-                                       │   └─ /app/public/photos (volume)        │
+                                       │   └─ /data/photos        (volume)        │
                                        └──────────────────────────────────────┘
                                         WHOOP OAuth ↔ api.prod.whoop.com
                                         MiniMax AI  ↔ api.minimax.io (optional)
 ```
 
-Everything data-facing runs in the container. Nothing sensitive lives in the app binary.
+Everything data-facing runs in the container. The app bundle contains UI code,
+not user health data or service credentials.
 
 ---
 
@@ -74,7 +75,7 @@ cp .env.production.example .env.production
 # then edit .env.production:
 #   BETTER_AUTH_URL=https://tracker.yourdomain.com
 #   BETTER_AUTH_SECRET=$(openssl rand -base64 48)
-#   BETTER_AUTH_TRUSTED_ORIGINS=https://tracker.yourdomain.com
+#   BETTER_AUTH_TRUSTED_ORIGINS=https://tracker.yourdomain.com,capacitor://localhost
 #   WHOOP_* / MINIMAX_*  (optional)
 ```
 
@@ -154,16 +155,10 @@ both equal the exact HTTPS domain.
 Once this is on the public internet (not just your LAN), address these — they're
 acceptable on a trusted LAN but not publicly:
 
-1. **Progress photos are served unauthenticated** by path. `/photos/*` is excluded
-   from the auth middleware (`proxy.ts`) and any file under `public/photos/` is
-   readable by anyone who knows/guesses the URL — this is body/health imagery.
-   Mitigations: put the photo path behind auth (move retrieval through an
-   authenticated route handler), or at minimum use long random filenames and a
-   proxy `Referer`/auth rule. Tracked as a follow-up.
-2. **Open signup, no email verification / rate limiting** — anyone with the URL
+1. **Open signup, no email verification / rate limiting** — anyone with the URL
    can create an account. Consider: disable open signup (invite/manual), add
    rate limiting at the reverse proxy, or a signup allowlist.
-3. **Secrets** live only in `.env.production` (gitignored) and the container env —
+2. **Secrets** live only in `.env.production` (gitignored) and the container env —
    never in the image or git. Rotate `BETTER_AUTH_SECRET` invalidates sessions.
 
 ---
@@ -190,6 +185,9 @@ cp -r ./photos ./backups/photos-$(date +%F)
 docker compose start app
 ```
 
+Delete backups older than 30 days. The public privacy policy commits to this
+maximum retention period, so the backup host must enforce that rotation.
+
 **Upgrade (new code):**
 ```bash
 git pull
@@ -207,39 +205,31 @@ docker compose up -d
 
 ## 5. iOS app (App Store)
 
-### 5.1 Point the shell at production
+### 5.1 Build and sync the local client
 
-Edit `capacitor.config.ts`:
-```ts
-server: {
-  url: "https://tracker.yourdomain.com",
-  // remove `cleartext: true` — production is HTTPS
-},
-```
-Then sync the native project:
+The production API defaults to `https://progression.fit`. Override
+`VITE_API_URL` during `mobile:build` only when targeting a different backend.
+Build the local assets and sync plugins/configuration into Xcode:
 ```bash
-npx cap sync ios
+npm run ios:sync
 ```
-This also updates the mirrored `ios/App/App/capacitor.config.json`.
+The generated `ios/App/App/capacitor.config.json` must not contain `server.url`.
+`CAP_DEV_SERVER` remains available for local live-reload development only.
 
 ### 5.2 Build & submit
 
 1. `npx cap open ios` → Xcode.
-2. Set the **Bundle Identifier** (`com.majidtahir.tracker`), your Team/signing,
-   and provide **app icons + launch screen** (the current `ios/App/App/public`
-   holds only stale placeholder assets).
+2. Confirm the **Bundle Identifier** is `fit.progression.app`, select the signing
+   Team, and verify Push Notifications capability for the distribution profile.
 3. Product → Archive → distribute to **TestFlight**, then submit for review in
    **App Store Connect**.
 
-### 5.3 ⚠️ App Review risk — Guideline 4.2 (minimum functionality)
+### 5.3 App Review notes
 
-As-is, this is a **pure remote-URL webview wrapper** with no native features and
-no offline capability. Apple frequently rejects these. Before submitting, plan
-the native surface (push notifications via APNs — there's already a disabled
-notifications stub, Capacitor Camera for photos, offline resilience). This is
-scoped separately in
-`docs/superpowers/specs/2026-07-10-app-store-native-readiness.md`. Treat that as
-a prerequisite for a smooth review, not an afterthought.
+Tell App Review that the interface is bundled, progress photos use the native
+Camera plugin, and push permission is requested in Settings. Provide a populated
+demo account and keep the backend/APNs production services available throughout
+review.
 
 ---
 
@@ -248,9 +238,9 @@ a prerequisite for a smooth review, not an afterthought.
 | Concern | Dev (before) | Production |
 |---|---|---|
 | DB | `prisma/dev.db` in repo root | `/data/tracker.db` on a mounted volume |
-| Photos | `public/photos` in repo | `/app/public/photos` on a mounted volume |
+| Photos | `var/photos` in repo | `/data/photos` on a mounted volume |
 | Origin | `http://192.168.1.229:3000` (LAN IP) | `https://tracker.yourdomain.com` |
 | Auth trusted origins | hardcoded LAN IP | `BETTER_AUTH_TRUSTED_ORIGINS` env |
 | WHOOP redirect | `localhost` | prod domain (re-registered) |
 | TLS | cleartext | terminated at reverse proxy |
-| iOS `server.url` | LAN IP + cleartext | prod HTTPS domain |
+| iOS web layer | optional `CAP_DEV_SERVER` live reload | bundled `dist-mobile` assets |

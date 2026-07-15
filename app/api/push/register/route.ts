@@ -10,6 +10,10 @@ import { auth } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
+export async function OPTIONS() {
+  return new Response(null, { status: 204 });
+}
+
 export async function POST(request: Request) {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) {

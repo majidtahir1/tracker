@@ -9,6 +9,9 @@ import { SectionCard } from "@/components/ui/Card";
 import WhoopIntegrationCard from "@/components/settings/WhoopIntegrationCard";
 import FitbitIntegrationCard from "@/components/settings/FitbitIntegrationCard";
 import NotificationSettingsCard from "@/components/settings/NotificationSettingsCard";
+import AiDataConsentCard from "@/components/settings/AiDataConsentCard";
+import DeleteAccountCard from "@/components/settings/DeleteAccountCard";
+import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/session";
 import { getWhoopStatus, maybeAutoSync } from "@/lib/queries/whoop";
@@ -48,7 +51,11 @@ export default async function SettingsPage({
       getFitbitStatus(),
       prisma.appSettings.findUnique({
         where: { userId },
-        select: { notifyMorningBrief: true, notifyStreakSaver: true },
+        select: {
+          notifyMorningBrief: true,
+          notifyStreakSaver: true,
+          aiDataSharingEnabled: true,
+        },
       }),
       prisma.pushToken.count({ where: { userId } }),
     ]);
@@ -107,6 +114,22 @@ export default async function SettingsPage({
             }}
             deviceRegistered={deviceCount > 0}
           />
+        </SectionCard>
+      </section>
+
+      <section className="space-y-5">
+        <div>
+          <h2 className="font-display text-lg font-semibold text-text">Privacy</h2>
+          <p className="mt-1 text-sm text-text-3">Control external processing and your account.</p>
+        </div>
+        <SectionCard title="AI data processing">
+          <AiDataConsentCard initialEnabled={appSettings?.aiDataSharingEnabled ?? false} />
+        </SectionCard>
+        <SectionCard
+          title="Your data"
+          action={<Link href="/privacy" className="text-xs font-medium text-accent">Privacy policy</Link>}
+        >
+          <DeleteAccountCard />
         </SectionCard>
       </section>
     </div>

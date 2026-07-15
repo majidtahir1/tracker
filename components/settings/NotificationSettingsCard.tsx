@@ -7,6 +7,7 @@
  */
 import { useState, useTransition } from "react";
 import { updateNotificationPrefs } from "@/lib/actions/settings";
+import PushPermissionButton from "./PushPermissionButton";
 
 function Toggle({
   label,
@@ -68,10 +69,7 @@ export default function NotificationSettingsCard({
   return (
     <div>
       {!deviceRegistered && (
-        <p className="mb-2 rounded-sm border border-border bg-surface-2 px-3 py-2 text-xs text-text-3">
-          No device registered yet — open the iOS app once and allow notifications to start
-          receiving pushes.
-        </p>
+        <PushPermissionButton />
       )}
       <div className="divide-y divide-border-faint">
         <Toggle

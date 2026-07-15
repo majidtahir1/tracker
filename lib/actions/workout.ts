@@ -51,7 +51,7 @@ function revalidateWorkoutPaths(sessionId?: string) {
 // startWorkout — create (or resume) the session for a scheduled workout day
 // ---------------------------------------------------------------------------
 
-export async function startWorkout(formData: FormData): Promise<void> {
+async function startWorkoutSession(formData: FormData): Promise<string> {
   const userId = await requireUserId();
   const templateId = String(formData.get("templateId") ?? "");
   const date = String(formData.get("date") ?? localToday());
@@ -76,7 +76,7 @@ export async function startWorkout(formData: FormData): Promise<void> {
       });
     }
     revalidateWorkoutPaths(existing.id);
-    redirect(`/workout/${existing.id}`);
+    return existing.id;
   }
 
   // Ensure a current TrainingBlock (auto-roll after week 13 elapses).
@@ -114,7 +114,7 @@ export async function startWorkout(formData: FormData): Promise<void> {
     where: { userId, status: "IN_PROGRESS" },
     select: { id: true },
   });
-  if (activeSession) redirect(`/workout/${activeSession.id}`);
+  if (activeSession) return activeSession.id;
 
   const week = Math.max(1, weekInCycle(block, date));
   const phase = blockPhase(week);
@@ -171,7 +171,28 @@ export async function startWorkout(formData: FormData): Promise<void> {
   });
 
   revalidateWorkoutPaths(session.id);
-  redirect(`/workout/${session.id}`);
+  return session.id;
+}
+
+export async function startWorkout(formData: FormData): Promise<void> {
+  const sessionId = await startWorkoutSession(formData);
+  redirect(`/workout/${sessionId}`);
+}
+
+export async function startWorkoutForMobile(input: {
+  templateId: string;
+  date?: string;
+  scheduleOverride?: boolean;
+}): Promise<{ ok: true; sessionId: string } | { ok: false; error: string }> {
+  const formData = new FormData();
+  formData.set("templateId", input.templateId);
+  if (input.date) formData.set("date", input.date);
+  if (input.scheduleOverride) formData.set("scheduleOverride", "today");
+  try {
+    return { ok: true, sessionId: await startWorkoutSession(formData) };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Unable to start workout" };
+  }
 }
 
 // ---------------------------------------------------------------------------

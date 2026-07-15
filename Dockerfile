@@ -43,9 +43,8 @@ ENV NODE_ENV=production \
 # better-sqlite3 binary and the generated Prisma client in lib/generated).
 COPY --from=builder /app /app
 
-# The photo-upload route writes to public/photos (process.cwd()/public/photos).
-# This dir is a volume mount at runtime; create it so the path exists on first run.
-RUN mkdir -p /app/public/photos /data
+# Private photos and SQLite live on the persistent /data volume at runtime.
+RUN mkdir -p /data/photos
 
 EXPOSE 3000
 

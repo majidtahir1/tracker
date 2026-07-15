@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/session";
 import { localToday } from "@/lib/dates";
 import { getWhoopDayContext, toCoachWhoopContext } from "@/lib/queries/effective-recovery";
+import { hasAiDataConsent } from "@/lib/ai/consent";
 
 export interface CoachBriefData {
   headline: string;
@@ -87,7 +88,7 @@ export async function buildLatestCoachBrief(): Promise<{ sessionId: string; brie
     exercises: session.exercises.map((ex) => ({ name: ex.exercise.name, sets: ex.sets.map((s) => ({ weight: s.weight, reps: s.reps, rir: s.rir })) })),
     ...(whoop ? { whoop } : {}),
   };
-  const generated = await callMiniMax(context);
+  const generated = (await hasAiDataConsent(userId)) ? await callMiniMax(context) : null;
   const brief: CoachBriefData = generated ?? {
     headline: `${session.template.name} complete`,
     message: `You logged ${setCount} working sets and ${Math.round(session.totalVolume).toLocaleString("en-US")} lb of volume${priorWorkoutCount === 0 ? `, establishing baselines across ${session.exercises.length} exercises` : prExercises.length > 0 ? ` with new records across ${prExercises.length} exercise${prExercises.length === 1 ? "" : "s"}` : ""}. Review the hardest sets honestly and carry that information into the next session.`,

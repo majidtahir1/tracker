@@ -76,6 +76,21 @@ export async function exchangeCode(
   });
 }
 
+/** Revoke the complete Google OAuth grant before account deletion. */
+export async function revokeGoogleHealthAccess(userId: string): Promise<void> {
+  const connection = await getConnection(userId);
+  if (!connection) return;
+  const response = await fetch("https://oauth2.googleapis.com/revoke", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ token: connection.refreshToken }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (!response.ok && response.status !== 400) {
+    throw new Error(`Google OAuth revoke returned ${response.status}`);
+  }
+}
+
 /** Refresh the access token; the refresh token itself does not rotate. */
 async function refreshTokens(connection: FitbitConnectionRow): Promise<FitbitConnectionRow> {
   let tokens: GoogleTokenResponse;

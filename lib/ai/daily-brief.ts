@@ -12,6 +12,7 @@ import { recoveryBand, type RecoveryBand } from "@/lib/recovery";
 import { isDeloadWeek, nextTemplateIndex, weekInCycle } from "@/lib/schedule";
 import { getWhoopDayContext } from "@/lib/queries/effective-recovery";
 import { callMiniMax, clip, type CoachBriefData } from "./dashboard-coach";
+import { hasAiDataConsent } from "./consent";
 
 const DAILY_BRIEF_SYSTEM_PROMPT =
   "You are a direct, observant hypertrophy coach greeting an athlete at the start of their day. Using only the supplied facts: if a \"firstDay\" field is present, welcome them to their first day — no recap of yesterday, no talk of rest days or missing data; point them at today's workout and how to pick starting weights. Otherwise acknowledge yesterday (workout recap or rest). If a \"whoop\" block is present, read recovery and sleep conservatively (recovery below 40 or heavy sleep debt means advise backing off intensity today; 40-69 means manage load; 70+ is a green light); if there is no whoop block, never mention WHOOP, recovery scores, sleep, or syncing — the athlete does not track these. Tell them what's on tap today (the named workout, or rest). Close with genuine motivation — a short apt quote is welcome when recovery is decent, never when advising rest. No hype, no invented data, no medical advice. Return only JSON: {\"headline\":string,\"message\":string,\"encouragement\":string}. Keep the visible response under 80 words.";
@@ -260,7 +261,9 @@ export async function buildDailyBrief(userId: string, today: LocalDate): Promise
       ? { workout: inputs.todayWorkout.name, isDeloadWeek: inputs.isDeloadWeek }
       : "rest day",
   };
-  const generated = await callMiniMax(context, DAILY_BRIEF_SYSTEM_PROMPT);
+  const generated = (await hasAiDataConsent(userId))
+    ? await callMiniMax(context, DAILY_BRIEF_SYSTEM_PROMPT)
+    : null;
   if (generated) {
     await prisma.dailyBrief.upsert({
       where: { userId_dayKey: { userId, dayKey } },

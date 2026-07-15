@@ -51,6 +51,11 @@
 	<false/>
 	<key>NSCameraUsageDescription</key>
 	<string>Take and attach progress photos.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose progress photos from your library.</string>
 </dict>

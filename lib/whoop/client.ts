@@ -71,6 +71,19 @@ export async function exchangeCode(code: string): Promise<WhoopTokenResponse> {
   });
 }
 
+/** Revoke WHOOP's grant before disconnecting or deleting an account. */
+export async function revokeWhoopAccess(userId: string): Promise<void> {
+  const accessToken = await getAccessToken(userId);
+  const response = await fetch(`${WHOOP_API_BASE}/user/access`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (response.status !== 204 && !response.ok) {
+    throw new Error(`WHOOP revoke returned ${response.status}`);
+  }
+}
+
 /** Refresh the stored tokens; persists the rotated pair. */
 async function refreshTokens(connection: WhoopConnectionRow): Promise<WhoopConnectionRow> {
   let tokens: WhoopTokenResponse;

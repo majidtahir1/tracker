@@ -1,9 +1,8 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
-// The tracker is a server-rendered Next.js app, so the iOS shell loads the UI
-// from a running server rather than bundled files. Defaults to production;
-// for development run `CAP_DEV_SERVER=http://<mac-lan-ip>:3000 npx cap sync ios`
-// to point the shell at your local dev server (cleartext allowed there only).
+// Production ships the Vite UI from webDir. CAP_DEV_SERVER remains available
+// for optional live-reload work; normal simulator builds also use the bundled
+// UI and bake in a local API URL through `npm run ios:sync:simulator`.
 const devServer = process.env.CAP_DEV_SERVER;
 
 // Keep the WHOOP OAuth flow inside the webview (where the session lives).
@@ -15,10 +14,10 @@ const OAUTH_HOSTS = ["api.prod.whoop.com", "*.whoop.com"];
 const config: CapacitorConfig = {
   appId: "fit.progression.app",
   appName: "Tracker",
-  webDir: "public",
+  webDir: "dist-mobile",
   server: devServer
     ? { url: devServer, cleartext: true, allowNavigation: OAUTH_HOSTS }
-    : { url: "https://progression.fit", allowNavigation: OAUTH_HOSTS },
+    : undefined,
   ios: {
     contentInset: "always",
   },
