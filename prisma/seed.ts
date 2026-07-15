@@ -11,7 +11,9 @@ import type {
   Priority,
 } from "../lib/generated/prisma/enums";
 
-const adapter = new PrismaBetterSqlite3({ url: "file:./prisma/dev.db" });
+const adapter = new PrismaBetterSqlite3({
+  url: process.env.DATABASE_URL ?? "file:./prisma/dev.db",
+});
 const prisma = new PrismaClient({ adapter });
 
 // ---------- Program constants (ARCHITECTURE.md §3.3–3.4) ----------

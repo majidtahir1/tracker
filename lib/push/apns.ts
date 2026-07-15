@@ -9,7 +9,7 @@
  *   APNS_KEY_ID     — the .p8 key's Key ID (from App Store Connect).
  *   APNS_TEAM_ID    — your Apple Developer Team ID.
  *   APNS_BUNDLE_ID  — the app's bundle id / apns-topic (defaults to the
- *                     Capacitor appId, com.majidtahir.tracker).
+ *                     Capacitor appId, fit.progression.app).
  *   APNS_AUTH_KEY   — the .p8 PEM contents. May contain literal "\n" escape
  *                     sequences (common when set via a single-line env var
  *                     or shell export) — those are normalized to real
@@ -34,7 +34,7 @@ function readConfig(): ApnsConfig {
   return {
     keyId: process.env.APNS_KEY_ID ?? "",
     teamId: process.env.APNS_TEAM_ID ?? "",
-    bundleId: process.env.APNS_BUNDLE_ID || "com.majidtahir.tracker",
+    bundleId: process.env.APNS_BUNDLE_ID || "fit.progression.app",
     // Literal "\n" sequences show up when the PEM is stuffed into a
     // single-line env var (e.g. via a .env file or CI secret); real
     // newlines pass through unchanged.

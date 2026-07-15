@@ -8,6 +8,7 @@ import { calculateSetGuardrails, deterministicCoachResponse } from "@/lib/ai/set
 import { requestMiniMaxCoach } from "@/lib/ai/set-coach-provider";
 import type { SetCoachResponse } from "@/lib/ai/set-coach-types";
 import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
+import { hasAiDataConsent } from "@/lib/ai/consent";
 
 export type SetCoachResult = { ok: true; advice: SetCoachResponse } | { ok: false; error: string };
 
@@ -61,6 +62,8 @@ export async function askSetCoach(sessionExerciseId: string): Promise<SetCoachRe
     guardrails,
     ...(whoop ? { whoop } : {}),
   };
-  const advice = await requestMiniMaxCoach(context, guardrails) ?? deterministicCoachResponse(guardrails);
+  const advice = (await hasAiDataConsent(userId))
+    ? await requestMiniMaxCoach(context, guardrails) ?? deterministicCoachResponse(guardrails)
+    : deterministicCoachResponse(guardrails);
   return { ok: true, advice };
 }

@@ -26,8 +26,8 @@ services:
     volumes:
       # Persistent SQLite database (survives image rebuilds).
       - ./data:/data
-      # Persistent progress-photo uploads (route writes to public/photos).
-      - ./photos:/app/public/photos
+      # Persistent private progress-photo uploads.
+      - ./photos:/data/photos
     ports:
       # Loopback only — your existing reverse proxy (on this host) forwards here.
       # Change to "0.0.0.0:3000:3000" only if the proxy is on another machine.

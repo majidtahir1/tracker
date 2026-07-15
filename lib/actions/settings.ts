@@ -26,3 +26,23 @@ export async function updateNotificationPrefs(prefs: NotificationPrefs): Promise
   revalidatePath("/settings");
   return { ok: true };
 }
+
+export async function updateAiDataConsent(enabled: boolean): Promise<{ ok: boolean }> {
+  const userId = await requireUserId();
+  const value = Boolean(enabled);
+  await prisma.appSettings.upsert({
+    where: { userId },
+    create: {
+      userId,
+      aiDataSharingEnabled: value,
+      aiDataConsentAt: value ? new Date().toISOString() : null,
+    },
+    update: {
+      aiDataSharingEnabled: value,
+      aiDataConsentAt: value ? new Date().toISOString() : null,
+    },
+  });
+  revalidatePath("/settings");
+  revalidatePath("/");
+  return { ok: true };
+}

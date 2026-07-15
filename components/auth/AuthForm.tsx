@@ -78,6 +78,9 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
               <>Have an account? <Link className="text-accent" href="/login">Sign in</Link></>
             )}
           </p>
+          <p className="text-center text-[11px] text-text-faint">
+            By continuing, you acknowledge the <Link className="text-accent" href="/privacy">Privacy Policy</Link>.
+          </p>
         </form>
       </div>
     </div>

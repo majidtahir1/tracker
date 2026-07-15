@@ -11,6 +11,10 @@ import { contentTypeForFilename, resolveSafe } from "@/lib/photos-storage";
 
 export const runtime = "nodejs";
 
+export async function OPTIONS() {
+  return new Response(null, { status: 204 });
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },

@@ -2,8 +2,8 @@
 
 /**
  * PushRegistrar — mounted once for authenticated users (see app/layout.tsx).
- * On the native iOS shell it requests notification permission, registers
- * with APNs via Capacitor, and forwards the resulting device token to
+ * On the native iOS shell it registers an already-authorized device with APNs
+ * and forwards the resulting device token to
  * /api/push/register. Renders nothing. No-op on web (Capacitor.isNativePlatform()
  * is false in the browser), so this is safe to mount unconditionally for
  * authed users.
@@ -33,7 +33,7 @@ export default function PushRegistrar() {
 
     (async () => {
       try {
-        const permission = await PushNotifications.requestPermissions();
+        const permission = await PushNotifications.checkPermissions();
         if (permission.receive !== "granted") return;
 
         registrationHandle = await PushNotifications.addListener("registration", (token) => {

@@ -24,6 +24,7 @@ import type {
 import type { ExerciseType } from "@/lib/generated/prisma/enums";
 import { visibleExerciseWhere } from "@/lib/program-access";
 import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
+import { hasAiDataConsent } from "@/lib/ai/consent";
 
 const REST_BY_TYPE: Record<ExerciseType, number> = {
   HEAVY_COMPOUND: 180,
@@ -68,6 +69,12 @@ export async function runBuilderTurn(input: {
   userMessage: string | null;
 }): Promise<BuilderResult> {
   const user = await requireUser();
+  if (!(await hasAiDataConsent(user.id))) {
+    return {
+      ok: false,
+      error: "Enable AI coaching in Settings before using the program builder.",
+    };
+  }
   try {
     await enforceRateLimit(user.id, "ai:program-builder", 10, 60 * 60);
   } catch (error) {

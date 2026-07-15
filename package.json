@@ -11,13 +11,21 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:migrate-users": "tsx prisma/migrate-multi-user.ts",
     "db:migrate-security-ownership": "tsx scripts/migrate-security-ownership.ts",
-    "test": "TZ=America/New_York tsx --test tests/*.test.ts"
+    "test": "TZ=America/New_York tsx --test tests/*.test.ts",
+    "mobile:api": "next dev --hostname 127.0.0.1 --port 3001",
+    "mobile:dev": "vite --config mobile/vite.config.ts",
+    "mobile:typecheck": "tsc --project mobile/tsconfig.json",
+    "mobile:build": "npm run mobile:typecheck && vite build --config mobile/vite.config.ts",
+    "mobile:build:simulator": "npm run mobile:typecheck && VITE_API_URL=http://localhost:3001 vite build --config mobile/vite.config.ts",
+    "ios:sync": "npm run mobile:build && cap sync ios",
+    "ios:sync:simulator": "npm run mobile:build:simulator && cap sync ios"
   },
   "dependencies": {
     "@capacitor/camera": "^8.2.1",
     "@capacitor/cli": "^8.4.1",
     "@capacitor/core": "^8.4.1",
     "@capacitor/ios": "^8.4.1",
+    "@capacitor/preferences": "^8.0.1",
     "@capacitor/push-notifications": "^8.1.1",
     "@prisma/adapter-better-sqlite3": "^7.8.0",
     "@prisma/client": "^7.8.0",
@@ -35,10 +43,12 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.0.3",
     "prisma": "^7.8.0",
     "tailwindcss": "^4",
     "tsx": "^4.22.5",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vite": "^8.1.4"
   },
   "overrides": {
     "@hono/node-server": "^1.19.13",

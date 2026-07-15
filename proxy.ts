@@ -8,13 +8,15 @@ const PUBLIC_PATHS = new Set([
   "/login",
   "/signup",
   "/connected",
+  "/privacy",
   "/api/whoop/callback",
   "/api/fitbit/callback",
   "/api/cron/notify", // bearer-token protected (CRON_SECRET), no session
 ]);
 
 export function proxy(request: NextRequest) {
-  const isPublic = PUBLIC_PATHS.has(request.nextUrl.pathname);
+  const isPublic =
+    PUBLIC_PATHS.has(request.nextUrl.pathname) || request.nextUrl.pathname.startsWith("/api/mobile/");
   const hasSession = Boolean(getSessionCookie(request));
   if (!hasSession && !isPublic) {
     return NextResponse.redirect(new URL("/login", request.url));

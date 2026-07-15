@@ -17,6 +17,10 @@ import { photosDir, resolveSafe } from "@/lib/photos-storage";
 
 export const runtime = "nodejs";
 
+export async function OPTIONS() {
+  return new Response(null, { status: 204 });
+}
+
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_BYTES = 15 * 1024 * 1024; // 15 MB per image
 

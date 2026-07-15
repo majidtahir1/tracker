@@ -746,6 +746,9 @@ model AppSettings {
   /// Push notification toggles (PR + reconnect pushes are always on).
   notifyMorningBrief     Boolean @default(true)
   notifyStreakSaver      Boolean @default(true)
+  /// Explicit permission to send workout and health context to MiniMax.
+  aiDataSharingEnabled   Boolean @default(false)
+  aiDataConsentAt        String?
   userId                 String  @unique
   user                   User    @relation("AppSettingsUser", fields: [userId], references: [id], onDelete: Cascade)
   activeProgramId        String?

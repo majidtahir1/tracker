@@ -19,6 +19,7 @@ import { deterministicRecap } from "@/lib/ai/exercise-recap-fallback";
 import { requestMiniMaxRecap } from "@/lib/ai/exercise-recap-provider";
 import type { ExerciseRecapResponse } from "@/lib/ai/exercise-recap-types";
 import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
+import { hasAiDataConsent } from "@/lib/ai/consent";
 
 export type ExerciseRecapResult =
   | { ok: true; recap: ExerciseRecapResponse }
@@ -120,7 +121,7 @@ export async function getExerciseRecap(sessionExerciseId: string): Promise<Exerc
   };
 
   const recap =
-    (await requestMiniMaxRecap(context)) ??
+    ((await hasAiDataConsent(userId)) ? await requestMiniMaxRecap(context) : null) ??
     deterministicRecap({
       exerciseName: se.exercise.name,
       completedSets: se.sets.map((s) => ({ weight: s.weight, reps: s.reps })),
