@@ -35,7 +35,22 @@ async function main(): Promise<void> {
     }
     if (activeFor.length === 0) unresolved++;
 
-    // A formerly shared active program becomes a private copy for every user.
+    // Exactly one user has it active: CLAIM in place rather than clone.
+    // Cloning mints new template/slot ids, but the user's sessions, PR
+    // provenance, and progression lineage (templateExerciseId) all point at
+    // the original — a clone would silently reset rotation and weight
+    // recommendations to zero history.
+    if (activeFor.length === 1) {
+      await prisma.program.update({
+        where: { id: program.id },
+        data: { ownerId: activeFor[0].userId },
+      });
+      claimed++;
+      continue;
+    }
+
+    // Genuinely shared (active for 2+ users): each gets a private copy; the
+    // original stays immutable so existing histories remain readable.
     for (const { userId } of activeFor) {
       const programId = await cloneBuiltInProgram(userId, program.id);
       if (!programId) throw new Error(`Could not clone legacy program ${program.name}`);
