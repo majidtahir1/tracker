@@ -10,6 +10,7 @@ import type {
   TemplateExercise,
   Exercise,
 } from "@/lib/generated/prisma/client";
+import { visibleExerciseWhere, visibleProgramWhere } from "@/lib/program-access";
 
 export type ProgramWithWorkouts = Program & {
   workouts: (WorkoutTemplate & {
@@ -26,6 +27,7 @@ export async function getPrograms(): Promise<GetProgramsResult> {
   const userId = await requireUserId();
   const [programs, settings] = await Promise.all([
     prisma.program.findMany({
+      where: visibleProgramWhere(userId),
       orderBy: [{ createdAt: "asc" }],
       include: {
         workouts: {
@@ -136,13 +138,13 @@ export function programPhaseViewData(program: ProgramWithWorkouts): PhaseViewDat
 }
 
 export async function getProgramWorkout(id: string) {
-  await requireUserId();
+  const userId = await requireUserId();
   const [workout, exercises] = await Promise.all([
-    prisma.workoutTemplate.findUnique({
-      where: { id },
+    prisma.workoutTemplate.findFirst({
+      where: { id, program: { ownerId: userId } },
       include: { program: true, exercises: { orderBy: { sortOrder: "asc" }, include: { exercise: true } } },
     }),
-    prisma.exercise.findMany({ where: {}, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.exercise.findMany({ where: visibleExerciseWhere(userId), orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
   return { workout, exercises };
 }

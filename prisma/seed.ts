@@ -214,6 +214,8 @@ async function main() {
       weightIncrement: ex.weightIncrement ?? 5,
       isBodyweight: ex.isBodyweight ?? false,
       notes: ex.notes ?? null,
+      isBuiltIn: true,
+      ownerId: null,
     };
     const row = await prisma.exercise.upsert({
       where: { name: ex.name },
@@ -237,8 +239,8 @@ async function main() {
   // 5. Program + ordered templates + slots
   const program = await prisma.program.upsert({
     where: { name: "UPPER / LOWER" },
-    update: { description: "Four-day upper/lower hypertrophy program" },
-    create: { name: "UPPER / LOWER", description: "Four-day upper/lower hypertrophy program" },
+    update: { description: "Four-day upper/lower hypertrophy program", isBuiltIn: true, ownerId: null },
+    create: { name: "UPPER / LOWER", description: "Four-day upper/lower hypertrophy program", isBuiltIn: true },
   });
   // Remove only unattached legacy templates that have no workout history.
   await prisma.workoutTemplate.deleteMany({

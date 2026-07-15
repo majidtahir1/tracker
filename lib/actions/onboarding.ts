@@ -10,6 +10,7 @@ import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/session";
 import { localToday } from "@/lib/dates";
 import { validBodyWeightLb } from "@/lib/onboarding";
+import { cloneBuiltInProgram } from "@/lib/program-access";
 
 export interface OnboardingResult {
   ok: boolean;
@@ -38,8 +39,11 @@ export async function completeOnboarding(input: {
 
   let activeProgramId: string | null | undefined; // undefined = leave as-is
   if (input.programChoice === "starter") {
-    const starter = await prisma.program.findFirst({ orderBy: { createdAt: "asc" } });
-    activeProgramId = starter?.id;
+    const starter = await prisma.program.findFirst({
+      where: { isBuiltIn: true },
+      orderBy: { createdAt: "asc" },
+    });
+    activeProgramId = starter ? await cloneBuiltInProgram(userId, starter.id) : null;
   }
   await prisma.appSettings.update({
     where: { userId },

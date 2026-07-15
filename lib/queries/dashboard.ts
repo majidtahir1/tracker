@@ -257,7 +257,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   ]);
 
   const activeProgram = settings?.activeProgramId
-    ? await prisma.program.findUnique({ where: { id: settings.activeProgramId } })
+    ? await prisma.program.findFirst({ where: { id: settings.activeProgramId, ownerId: userId } })
     : null;
   const templates = activeProgram
     ? await prisma.workoutTemplate.findMany({

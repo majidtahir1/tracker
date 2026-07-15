@@ -23,6 +23,7 @@ export default async function OnboardingPage() {
     // The built-in starter is the oldest program in the catalog — the wizard's
     // "keep the starter" choice activates it (nothing is active until then).
     const program = await prisma.program.findFirst({
+      where: { isBuiltIn: true },
       orderBy: { createdAt: "asc" },
       include: {
         workouts: {
