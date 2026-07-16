@@ -19,6 +19,17 @@ import {
   GOOGLE_HEALTH_SCOPES,
 } from "@/lib/fitbit/config";
 
+/**
+ * Absolute URL on the canonical public origin. The reverse proxy does not
+ * forward the public Host header, so `request.url` resolves to the upstream
+ * (localhost:<port>) — absolute redirects built from it send the browser to
+ * localhost. BETTER_AUTH_URL is the deployment's public origin; fall back to
+ * the request only in dev, where the two match.
+ */
+export function publicUrl(path: string, request: Request): URL {
+  return new URL(path, process.env.BETTER_AUTH_URL ?? request.url);
+}
+
 /** Authorize URL for the provider, or null when it isn't configured. */
 export async function wearableAuthorizeUrl(
   userId: string,
