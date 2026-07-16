@@ -239,11 +239,34 @@ async function main() {
   }
 
   // 5. Program + ordered templates + slots
-  const program = await prisma.program.upsert({
-    where: { name: "UPPER / LOWER" },
-    update: { description: "Four-day upper/lower hypertrophy program", isBuiltIn: true, ownerId: null },
-    create: { name: "UPPER / LOWER", description: "Four-day upper/lower hypertrophy program", isBuiltIn: true },
+  // Never claim a user-owned program: the pre-multi-user "UPPER / LOWER" row
+  // may have been claimed by a user (migration), and program names are
+  // globally unique — an upsert keyed on the name would strip their
+  // ownership. Prefer the existing built-in; otherwise create one, dodging
+  // the canonical name if a user's program holds it.
+  const description = "Four-day upper/lower hypertrophy program";
+  let program = await prisma.program.findFirst({
+    where: { isBuiltIn: true },
+    orderBy: { createdAt: "asc" },
   });
+  if (program) {
+    program = await prisma.program.update({
+      where: { id: program.id },
+      data: { description, ownerId: null },
+    });
+  } else {
+    const canonical = await prisma.program.findUnique({ where: { name: "UPPER / LOWER" } });
+    if (canonical && canonical.ownerId == null) {
+      // Legacy unowned row: safe to promote to the built-in.
+      program = await prisma.program.update({
+        where: { id: canonical.id },
+        data: { description, isBuiltIn: true },
+      });
+    } else {
+      const name = canonical ? "UPPER / LOWER (Starter)" : "UPPER / LOWER";
+      program = await prisma.program.create({ data: { name, description, isBuiltIn: true } });
+    }
+  }
   // Remove only unattached legacy templates that have no workout history.
   await prisma.workoutTemplate.deleteMany({
     where: { programId: null, sessions: { none: {} } },
