@@ -10,6 +10,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { consumeOAuthState } from "@/lib/oauth-state";
+import { publicUrl } from "@/lib/wearable-auth";
 import { exchangeCode } from "@/lib/fitbit/client";
 import { syncFitbit } from "@/lib/fitbit/sync";
 import { encryptToken } from "@/lib/security/token-crypto";
@@ -21,7 +22,7 @@ async function doneRedirect(request: Request, status: string): Promise<NextRespo
   const target = session
     ? `/settings?fitbit=${status}`
     : `/connected?provider=fitbit&status=${status}`;
-  return NextResponse.redirect(new URL(target, request.url));
+  return NextResponse.redirect(publicUrl(target, request));
 }
 
 export async function GET(request: Request) {

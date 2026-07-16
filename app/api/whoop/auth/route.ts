@@ -5,19 +5,19 @@
  */
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { wearableAuthorizeUrl } from "@/lib/wearable-auth";
+import { publicUrl, wearableAuthorizeUrl } from "@/lib/wearable-auth";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(publicUrl("/login", request));
   }
 
   const url = await wearableAuthorizeUrl(session.user.id, "whoop");
   if (!url) {
-    return NextResponse.redirect(new URL("/settings?whoop=not_configured", request.url));
+    return NextResponse.redirect(publicUrl("/settings?whoop=not_configured", request));
   }
   return NextResponse.redirect(url);
 }

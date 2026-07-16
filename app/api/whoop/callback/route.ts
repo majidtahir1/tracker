@@ -10,6 +10,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { consumeOAuthState } from "@/lib/oauth-state";
+import { publicUrl } from "@/lib/wearable-auth";
 import { WHOOP_API_BASE } from "@/lib/whoop/config";
 import { exchangeCode } from "@/lib/whoop/client";
 import { syncWhoop } from "@/lib/whoop/sync";
@@ -21,7 +22,7 @@ export const runtime = "nodejs";
 async function doneRedirect(request: Request, status: string): Promise<NextResponse> {
   const session = await auth.api.getSession({ headers: request.headers });
   const target = session ? `/settings?whoop=${status}` : `/connected?provider=whoop&status=${status}`;
-  return NextResponse.redirect(new URL(target, request.url));
+  return NextResponse.redirect(publicUrl(target, request));
 }
 
 export async function GET(request: Request) {
