@@ -2,20 +2,17 @@
 
 /**
  * lib/actions/onboarding.ts — completes (or skips) the first-run wizard.
- * Stamping onboardedAt is the only required write; the body-weight measurement
- * is best-effort on top.
+ * Thin web wrapper over lib/onboarding-server.ts (shared with the mobile
+ * API): resolve the session, delegate, revalidate.
  */
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/session";
-import { localToday } from "@/lib/dates";
-import { validBodyWeightLb } from "@/lib/onboarding";
-import { cloneBuiltInProgram } from "@/lib/program-access";
+import {
+  completeOnboardingForUser,
+  type OnboardingResult,
+} from "@/lib/onboarding-server";
 
-export interface OnboardingResult {
-  ok: boolean;
-  error?: string;
-}
+export type { OnboardingResult };
 
 export async function completeOnboarding(input: {
   bodyWeightLb: number | null;
@@ -23,37 +20,11 @@ export async function completeOnboarding(input: {
   programChoice: "starter" | "ai" | "manual" | "skip";
 }): Promise<OnboardingResult> {
   const userId = await requireUserId();
-  const weight = input.bodyWeightLb;
-  if (weight != null && !validBodyWeightLb(weight)) {
-    return { ok: false, error: "Body weight must be between 30 and 1000 lb." };
+  const result = await completeOnboardingForUser(userId, input);
+  if (result.ok) {
+    revalidatePath("/");
+    revalidatePath("/workout");
+    revalidatePath("/measurements");
   }
-
-  if (weight != null) {
-    const date = localToday();
-    await prisma.bodyMeasurement.upsert({
-      where: { userId_date: { userId, date } },
-      update: { weight },
-      create: { userId, date, weight },
-    });
-  }
-
-  let activeProgramId: string | null | undefined; // undefined = leave as-is
-  if (input.programChoice === "starter") {
-    const starter = await prisma.program.findFirst({
-      where: { isBuiltIn: true },
-      orderBy: { createdAt: "asc" },
-    });
-    activeProgramId = starter ? await cloneBuiltInProgram(userId, starter.id) : null;
-  }
-  await prisma.appSettings.update({
-    where: { userId },
-    data: {
-      onboardedAt: new Date().toISOString(),
-      ...(activeProgramId !== undefined ? { activeProgramId } : {}),
-    },
-  });
-  revalidatePath("/");
-  revalidatePath("/workout");
-  revalidatePath("/measurements");
-  return { ok: true };
+  return result;
 }

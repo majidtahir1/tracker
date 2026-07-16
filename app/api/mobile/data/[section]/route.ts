@@ -13,6 +13,10 @@ import {
   getRecoveryData,
 } from "@/lib/queries/tracking";
 import { getPrograms } from "@/lib/queries/programs";
+import { shouldOnboard } from "@/lib/onboarding";
+import { getStarterSummary } from "@/lib/onboarding-server";
+import { isWhoopConfigured } from "@/lib/whoop/config";
+import { isFitbitConfigured } from "@/lib/fitbit/config";
 import { getGoalsPageData } from "@/lib/queries/goals";
 import { getCalendarData, parseMonthParam } from "@/lib/queries/calendar";
 import { getWhoopStatus } from "@/lib/queries/whoop";
@@ -96,6 +100,21 @@ export async function GET(
         ...programs,
         aiConsent,
         aiConfigured: Boolean(process.env.MINIMAX_API_KEY),
+      };
+      break;
+    }
+    case "onboarding": {
+      const [settings, completedCount, starter] = await Promise.all([
+        prisma.appSettings.findUnique({ where: { userId: session.user.id } }),
+        prisma.workoutSession.count({ where: { userId: session.user.id, status: "COMPLETED" } }),
+        getStarterSummary(),
+      ]);
+      data = {
+        shouldOnboard: shouldOnboard(settings, completedCount),
+        activeProgramId: settings?.activeProgramId ?? null,
+        starter,
+        whoopConfigured: isWhoopConfigured(),
+        fitbitConfigured: isFitbitConfigured(),
       };
       break;
     }
