@@ -304,6 +304,15 @@ fieldset.builder-field { padding: 0; border: 0; }
 .connect-note svg { flex: none; margin-top: 1px; }
 .empty-cta { margin-top: 14px; }
 .connect-inline { min-height: 34px; padding: 0 14px; font-size: 12px; }
+.metric-grid.thirds { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.insight { display: flex; align-items: flex-start; gap: 12px; padding: 14px; margin-bottom: 10px; }
+.insight-icon { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 6px; background: var(--surface-2); color: var(--muted); }
+.insight.up .insight-icon { background: var(--accent-muted); color: var(--accent); }
+.insight.down .insight-icon { color: var(--cyan); }
+.insight.warn { border-color: var(--danger-border); }
+.insight.warn .insight-icon { background: var(--danger-muted); color: var(--warning); }
+.insight strong { display: block; font-size: 14px; }
+.insight p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
 .editor-day { padding: 14px; margin-bottom: 12px; }
 .editor-day-head { display: flex; align-items: end; gap: 8px; margin-bottom: 4px; }
 .editor-day-head .builder-field { flex: 1; }

@@ -28,7 +28,7 @@ import {
 } from "@/lib/volume";
 import { getLatestEffectiveRecovery } from "@/lib/queries/effective-recovery";
 import { recommendProgression, type PriorSet } from "@/lib/progression";
-import { consecutiveWeeks, SESSIONS_PER_WEEK, weekComplete, type WeekSessions } from "@/lib/streaks";
+import { SESSIONS_PER_WEEK, streakFromCompletedDates } from "@/lib/streaks";
 import {
   NOTIFICATIONS_ENABLED,
   scheduleNotifications,
@@ -448,23 +448,11 @@ export async function getDashboardData(): Promise<DashboardData> {
     .filter((s) => s.date >= prevWeekStart && s.date < weekStart)
     .reduce((sum, s) => sum + s.totalVolume, 0);
 
-  // Streak over weeks since the block started. The in-progress week joins
-  // the streak as soon as it hits the session target — "0 wks" after
-  // training 4× this week reads as broken.
-  const weeks: WeekSessions[] = [];
-  if (block) {
-    for (let ws = block.startDate; ws <= weekStart; ws = addDays(ws, 7)) {
-      const weekEnd = addDays(ws, 6);
-      const week: WeekSessions = {
-        weekStart: ws,
-        sessions: completedSessions
-          .filter((s) => s.date >= ws && s.date <= weekEnd)
-          .map(() => ({ status: "COMPLETED" as const })),
-      };
-      if (ws < weekStart || weekComplete(week)) weeks.push(week);
-    }
-  }
-  const streakWeeks = consecutiveWeeks(weeks);
+  // Streak over weeks since the block started (in-progress week counts once
+  // it hits the session target — see streakFromCompletedDates).
+  const streakWeeks = block
+    ? streakFromCompletedDates(block.startDate, completedSessions.map((s) => s.date), weekStart)
+    : 0;
 
   const stats: DashboardStats = {
     bodyWeight: latestWeighIn
