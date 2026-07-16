@@ -14,6 +14,9 @@ import {
 } from "@/lib/queries/tracking";
 import { getPrograms } from "@/lib/queries/programs";
 import { shouldOnboard } from "@/lib/onboarding";
+import { deriveInsights } from "@/lib/insights";
+import { streakFromCompletedDates } from "@/lib/streaks";
+import { isoWeekMonday } from "@/lib/dates";
 import { getStarterSummary } from "@/lib/onboarding-server";
 import { isWhoopConfigured } from "@/lib/whoop/config";
 import { isFitbitConfigured } from "@/lib/fitbit/config";
@@ -67,6 +70,39 @@ export async function GET(
     case "exercises":
       data = await getExerciseLibrary();
       break;
+    case "insights": {
+      const today = localToday();
+      const [analytics, records, block, completed] = await Promise.all([
+        getAnalyticsData("12W"),
+        getRecordsData(),
+        prisma.trainingBlock.findFirst({
+          where: { userId: session.user.id },
+          orderBy: { cycleNumber: "desc" },
+        }),
+        prisma.workoutSession.findMany({
+          where: { userId: session.user.id, status: "COMPLETED" },
+          select: { date: true },
+        }),
+      ]);
+      const streakWeeks = block
+        ? streakFromCompletedDates(block.startDate, completed.map((s) => s.date), isoWeekMonday(today))
+        : 0;
+      data = {
+        insights: deriveInsights({
+          analytics,
+          prTimeline: records.timeline,
+          streakWeeks,
+          blockStart: block?.startDate ?? null,
+          today,
+        }),
+        stats: {
+          completedSessions: analytics.stats.completedSessions,
+          prCount: records.totalPrs,
+          streakWeeks,
+        },
+      };
+      break;
+    }
     case "records":
       data = await getRecordsData();
       break;

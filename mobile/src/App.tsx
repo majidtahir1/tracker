@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
+  AlertTriangle,
   BarChart3,
   Bot,
   Check,
@@ -8,6 +9,7 @@ import {
   Dumbbell,
   Ellipsis,
   History,
+  Info,
   Library,
   Loader2,
   LogOut,
@@ -17,6 +19,8 @@ import {
   Shield,
   Sparkles,
   Sun,
+  TrendingDown,
+  TrendingUp,
   Trophy,
   Wrench,
   X,
@@ -277,7 +281,29 @@ function SetRow({ exerciseId, number, initial, targetWeight, refresh }: { exerci
 
 function HistoryScreen() { const state = useData("history"); const groups = state.value as Json[] | null; return <Screen title="History" eyebrow="Training log"><AsyncState loading={state.loading} error={state.error} />{groups?.map((group) => <section key={group.weekStart}><h2 className="section-title">{group.label}</h2><div className="panel list-panel">{group.sessions.map((session: Json) => <div className="list-row" key={session.id}><div><strong>{session.name}</strong><small>{session.dateLabel} · {session.completedSets}/{session.targetSets} sets</small></div><span>{session.status === "COMPLETED" ? `${Math.round(session.totalVolume).toLocaleString()} lb` : session.status}</span></div>)}</div></section>)}{groups?.length === 0 && <div className="panel empty">Completed workouts will appear here.</div>}</Screen>; }
 
-function AnalyticsScreen() { const state = useData("analytics", "?range=12W"); const d = state.value; return <Screen title="Analytics" eyebrow="Last 12 weeks"><AsyncState loading={state.loading} error={state.error} />{d && <><div className="metric-grid"><Metric label="Sessions" value={d.frequency?.reduce((n: number, week: Json) => n + (week.completed ?? 0), 0) ?? "—"} /><Metric label="Exercise trends" value={d.e1rmSeries?.length ?? 0} /><Metric label="WHOOP connected" value={d.whoop ? "Yes" : "No"} accent /></div><DataSummary value={d} /></>}</Screen>; }
+const INSIGHT_ICONS = { up: TrendingUp, down: TrendingDown, warn: AlertTriangle, info: Info } as const;
+
+function AnalyticsScreen() {
+  const state = useData("insights");
+  const d = state.value;
+  return <Screen title="Insights" eyebrow="Computed from your training">
+    <AsyncState loading={state.loading} error={state.error} />
+    {d && <>
+      <div className="metric-grid thirds">
+        <Metric label="Sessions · 12 wks" value={d.stats.completedSessions} />
+        <Metric label="All-time PRs" value={d.stats.prCount} />
+        <Metric label="Week streak" value={d.stats.streakWeeks} accent />
+      </div>
+      {d.insights.map((insight: Json, index: number) => {
+        const Icon = INSIGHT_ICONS[insight.direction as keyof typeof INSIGHT_ICONS] ?? Info;
+        return <section className={`panel insight ${insight.direction}`} key={`${insight.kind}-${index}`}>
+          <span className="insight-icon"><Icon size={18} /></span>
+          <div><strong>{insight.headline}</strong><p>{insight.detail}</p></div>
+        </section>;
+      })}
+    </>}
+  </Screen>;
+}
 
 function ExercisesScreen() { const state = useData("exercises"); const [search, setSearch] = useState(""); const list = useMemo(() => (state.value || []).filter((x: Json) => x.name.toLowerCase().includes(search.toLowerCase())), [state.value, search]); return <Screen title="Exercises" eyebrow={`${list.length} movements`}><input className="search" placeholder="Search exercises" value={search} onChange={(e) => setSearch(e.target.value)} /><AsyncState loading={state.loading} error={state.error} /><div className="panel list-panel">{list.map((ex: Json) => <div className="list-row" key={ex.id}><div><strong>{ex.name}</strong><small>{pretty(ex.primaryMuscle)} · {pretty(ex.equipment)}</small></div>{ex.isFavorite && <span className="accent">Favorite</span>}</div>)}</div></Screen>; }
 
