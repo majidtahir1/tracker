@@ -95,6 +95,22 @@ button { color: inherit; }
 .coach-card p, .coach-card blockquote { color: var(--muted); font-size: 13px; line-height: 1.5; }
 .coach-card p { margin: 0; }
 .coach-card blockquote { margin: 13px 0 0; padding-top: 12px; border-top: 1px solid var(--border-faint); color: var(--text-2); font-style: italic; }
+.recap-banner { margin-bottom: 10px; background: var(--accent-muted); }
+.recap-banner h2 { font-size: 15px; }
+.coach-label .coach-dismiss { margin-left: auto; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; border-radius: 5px; color: var(--muted); }
+.coach-footer { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-faint); }
+.coach-footer small { color: var(--muted); font-size: 12px; }
+.coach-ask { min-height: 37px; font-size: 12px; }
+.coach-error { margin: 8px 0 0; color: var(--danger); font-size: 12px; }
+.coach-advice { margin-top: 12px; padding: 14px; border: 1px solid var(--accent-border); border-radius: 6px; background: var(--accent-muted); }
+.coach-advice h3 { margin: 9px 0 6px; font-size: 14px; }
+.coach-advice p, .coach-advice blockquote { margin: 0; color: var(--text-2); font-size: 13px; line-height: 1.5; }
+.coach-advice blockquote { margin-top: 7px; color: var(--muted); font-style: italic; }
+.coach-action { padding: 3px 8px; border: 1px solid var(--accent-border); border-radius: 4px; color: var(--accent); font-size: 10px; font-weight: 750; text-transform: uppercase; letter-spacing: .04em; }
+.coach-action.down { border-color: var(--danger-border); color: var(--danger); }
+.coach-warning { margin-top: 8px !important; color: var(--danger) !important; font-weight: 600; }
+.coach-next { margin-top: 9px !important; color: var(--accent) !important; font-family: var(--mono, ui-monospace, monospace); font-size: 12px !important; }
+.coach-fallback { display: block; margin-top: 9px; color: var(--muted); font-size: 10.5px; }
 .action-panel { width: 100%; padding: 18px; display: flex; align-items: center; justify-content: space-between; text-align: left; }
 .dashboard-next { margin-bottom: 14px; }
 .action-panel h2, .workout-head h2, .program h2, .exercise-title h2 { margin: 7px 0 4px; font-size: 18px; }
