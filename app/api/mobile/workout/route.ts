@@ -5,6 +5,8 @@ import {
   startWorkoutForMobile,
   updateExerciseNotes,
 } from "@/lib/actions/workout";
+import { askSetCoach } from "@/lib/actions/set-coach";
+import { getExerciseRecap } from "@/lib/actions/exercise-recap";
 
 export async function OPTIONS() {
   return new Response(null, { status: 204 });
@@ -36,6 +38,12 @@ export async function POST(request: Request) {
       break;
     case "finish":
       result = await finishWorkout(String(body.sessionId ?? ""));
+      break;
+    case "askCoach":
+      result = await askSetCoach(String(body.sessionExerciseId ?? ""));
+      break;
+    case "recap":
+      result = await getExerciseRecap(String(body.sessionExerciseId ?? ""));
       break;
     case "notes":
       result = await updateExerciseNotes(String(body.sessionExerciseId ?? ""), String(body.notes ?? ""));

@@ -259,23 +259,77 @@ function WorkoutScreen({ openPrograms }: { openPrograms: () => void }) {
 
 function SessionLogger({ id, onFinished }: { id: string; onFinished: () => void }) {
   const detail = useData("session", `?id=${encodeURIComponent(id)}`); const d = detail.value;
+  // Coach recap fired when an exercise's last set completes. forExerciseId is
+  // the card it renders above (the next incomplete exercise), or null after the final one.
+  const [recap, setRecap] = useState<{ forExerciseId: string | null; data: Json } | null>(null);
   async function finish() { const result = await post<Json>("/api/mobile/workout", { action: "finish", sessionId: id }); if (result.ok) onFinished(); }
+  async function fetchRecap(sessionExerciseId: string) {
+    const exercises: Json[] = d?.session?.exercises ?? [];
+    const idx = exercises.findIndex((ex) => ex.sessionExerciseId === sessionExerciseId);
+    const nextEx = exercises.slice(idx + 1).find((ex) => ex.sets.filter((set: Json) => set.completed).length < Math.max(ex.targetSets, ex.sets.length));
+    const result = await post<Json>("/api/mobile/workout", { action: "recap", sessionExerciseId }).catch(() => null);
+    if (result?.ok) setRecap({ forExerciseId: nextEx?.sessionExerciseId ?? null, data: result.recap });
+  }
   return <Screen title={d?.session?.name || "Workout"} eyebrow={d?.session ? `Week ${d.session.weekInCycle}${d.session.isDeload ? " · Deload" : ""}` : "Active session"}>
     <AsyncState loading={detail.loading} error={detail.error} />
-    {d?.session?.exercises.map((ex: Json) => <ExerciseLogger key={ex.sessionExerciseId} exercise={ex} refresh={detail.reload} />)}
+    {d?.session?.exercises.map((ex: Json) => <div key={ex.sessionExerciseId}>
+      {recap && recap.forExerciseId === ex.sessionExerciseId && <RecapBanner recap={recap.data} onDismiss={() => setRecap(null)} />}
+      <ExerciseLogger exercise={ex} refresh={detail.reload} onExerciseComplete={fetchRecap} />
+    </div>)}
+    {recap && recap.forExerciseId === null && <RecapBanner recap={recap.data} onDismiss={() => setRecap(null)} />}
     {d && <button className="button primary full finish" onClick={finish}>Finish workout</button>}
   </Screen>;
 }
 
-function ExerciseLogger({ exercise, refresh }: { exercise: Json; refresh: () => Promise<void> }) {
-  const existing = new Map<number, Json>(exercise.sets.map((set: Json) => [set.setNumber, set]));
-  const rows = Array.from({ length: Math.max(exercise.targetSets, exercise.sets.length) }, (_, index) => index + 1);
-  return <section className="panel exercise-panel"><div className="exercise-title"><div><h2>{exercise.name}</h2><p>{exercise.targetSets} × {exercise.targetRepMin}-{exercise.targetRepMax} · RIR {exercise.targetRirMin}-{exercise.targetRirMax}</p></div>{exercise.targetWeight != null && <span className="weight-target">{exercise.targetWeight} lb</span>}</div>{rows.map((number) => <SetRow key={number} exerciseId={exercise.sessionExerciseId} number={number} initial={existing.get(number)} targetWeight={exercise.targetWeight} refresh={refresh} />)}</section>;
+function RecapBanner({ recap, onDismiss }: { recap: Json; onDismiss: () => void }) {
+  return <section className="panel coach-card recap-banner">
+    <div className="coach-label"><Sparkles size={17} /><span>Coach recap</span><button className="coach-dismiss" aria-label="Dismiss coach feedback" onClick={onDismiss}><X size={16} /></button></div>
+    <h2>{recap.headline}</h2>
+    <p>{recap.message}</p>
+    <blockquote>{recap.focusCue}</blockquote>
+    {recap.source === "deterministic" && <small className="coach-fallback">Local coaching fallback</small>}
+  </section>;
 }
 
-function SetRow({ exerciseId, number, initial, targetWeight, refresh }: { exerciseId: string; number: number; initial?: Json; targetWeight: number | null; refresh: () => Promise<void> }) {
+function ExerciseLogger({ exercise, refresh, onExerciseComplete }: { exercise: Json; refresh: () => Promise<void>; onExerciseComplete: (sessionExerciseId: string) => Promise<void> }) {
+  const existing = new Map<number, Json>(exercise.sets.map((set: Json) => [set.setNumber, set]));
+  const rows = Array.from({ length: Math.max(exercise.targetSets, exercise.sets.length) }, (_, index) => index + 1);
+  const doneCount = exercise.sets.filter((set: Json) => set.completed).length;
+  const [coachPending, setCoachPending] = useState(false);
+  const [coach, setCoach] = useState<Json | null>(null);
+  const [coachError, setCoachError] = useState<string | null>(null);
+  async function askCoach() {
+    setCoachPending(true); setCoachError(null);
+    const result = await post<Json>("/api/mobile/workout", { action: "askCoach", sessionExerciseId: exercise.sessionExerciseId }).catch(() => ({ ok: false, error: "Coach is unavailable right now." } as Json));
+    if (result.ok) setCoach(result.advice); else setCoachError(result.error);
+    setCoachPending(false);
+  }
+  function afterSetSaved(number: number) {
+    // Fires the recap only when this save turns the exercise complete (every other row already saved).
+    const done = rows.every((n) => n === number || existing.get(n)?.completed);
+    if (done && !existing.get(number)?.completed) void onExerciseComplete(exercise.sessionExerciseId);
+  }
+  return <section className="panel exercise-panel"><div className="exercise-title"><div><h2>{exercise.name}</h2><p>{exercise.targetSets} × {exercise.targetRepMin}-{exercise.targetRepMax} · RIR {exercise.targetRirMin}-{exercise.targetRirMax}</p></div>{exercise.targetWeight != null && <span className="weight-target">{exercise.targetWeight} lb</span>}</div>{rows.map((number) => <SetRow key={number} exerciseId={exercise.sessionExerciseId} number={number} initial={existing.get(number)} targetWeight={exercise.targetWeight} refresh={refresh} onSaved={afterSetSaved} />)}
+    <div className="coach-footer">
+      <button className="button secondary coach-ask" disabled={doneCount === 0 || coachPending} onClick={askCoach}>{coachPending ? <><Loader2 size={15} className="spin" /> Reviewing sets…</> : <><Bot size={15} /> Ask Coach</>}</button>
+      {doneCount === 0 && <small>Complete a set to ask the coach.</small>}
+    </div>
+    {coachError && <p className="coach-error">{coachError}</p>}
+    {coach && <div className="coach-advice">
+      <div className="coach-label"><span className={`coach-action ${coach.action === "INCREASE" ? "up" : coach.action === "REDUCE" || coach.action === "STOP" ? "down" : ""}`}>{String(coach.action).replace("_", " ")}</span><button className="coach-dismiss" aria-label="Dismiss coach feedback" onClick={() => setCoach(null)}><X size={16} /></button></div>
+      <h3>{coach.headline}</h3>
+      <p>{coach.explanation}</p>
+      <blockquote>{coach.encouragement}</blockquote>
+      {coach.safetyWarning && <p className="coach-warning">{coach.safetyWarning}</p>}
+      {coach.repMin != null && coach.repMax != null && <p className="coach-next">Next set: {coach.nextWeight ?? 0} lb × {coach.repMin}{coach.repMax !== coach.repMin ? `–${coach.repMax}` : ""}</p>}
+      {coach.source === "deterministic" && <small className="coach-fallback">Local coaching fallback</small>}
+    </div>}
+  </section>;
+}
+
+function SetRow({ exerciseId, number, initial, targetWeight, refresh, onSaved }: { exerciseId: string; number: number; initial?: Json; targetWeight: number | null; refresh: () => Promise<void>; onSaved: (number: number) => void }) {
   const [weight, setWeight] = useState(String(initial?.weight ?? targetWeight ?? "")); const [reps, setReps] = useState(String(initial?.reps ?? "")); const [rir, setRir] = useState(String(initial?.rir ?? "")); const [saving, setSaving] = useState(false);
-  async function save() { setSaving(true); await post("/api/mobile/workout", { action: "logSet", sessionExerciseId: exerciseId, setNumber: number, weight: Number(weight), reps: Number(reps), rir: rir === "" ? null : Number(rir), completed: true }); await refresh(); setSaving(false); }
+  async function save() { setSaving(true); await post("/api/mobile/workout", { action: "logSet", sessionExerciseId: exerciseId, setNumber: number, weight: Number(weight), reps: Number(reps), rir: rir === "" ? null : Number(rir), completed: true }); onSaved(number); await refresh(); setSaving(false); }
   return <div className={initial?.completed ? "set-row complete" : "set-row"}><span className="set-number">{number}</span><label>lb<input inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} /></label><label>reps<input inputMode="numeric" value={reps} onChange={(e) => setReps(e.target.value)} /></label><label>RIR<input inputMode="numeric" value={rir} onChange={(e) => setRir(e.target.value)} /></label><button className="set-save" disabled={saving || weight === "" || reps === ""} onClick={save}>{saving ? "..." : initial?.completed ? "Saved" : "Done"}</button></div>;
 }
 
