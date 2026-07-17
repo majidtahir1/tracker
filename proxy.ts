@@ -5,10 +5,12 @@ import { getSessionCookie } from "better-auth/cookies";
 // session: on mobile the flow finishes in Safari, not the app's webview.
 // Callbacks identify the user via the single-use DB state (lib/oauth-state).
 const PUBLIC_PATHS = new Set([
+  "/welcome",
   "/login",
   "/signup",
   "/connected",
   "/privacy",
+  "/support",
   "/api/whoop/callback",
   "/api/fitbit/callback",
   "/api/cron/notify", // bearer-token protected (CRON_SECRET), no session
@@ -19,7 +21,10 @@ export function proxy(request: NextRequest) {
     PUBLIC_PATHS.has(request.nextUrl.pathname) || request.nextUrl.pathname.startsWith("/api/mobile/");
   const hasSession = Boolean(getSessionCookie(request));
   if (!hasSession && !isPublic) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    // Logged-out visitors hitting the app root get the marketing page;
+    // any other protected path still goes to sign-in.
+    const target = request.nextUrl.pathname === "/" ? "/welcome" : "/login";
+    return NextResponse.redirect(new URL(target, request.url));
   }
   return NextResponse.next();
 }
