@@ -20,9 +20,9 @@ export default function AiDataConsentCard({ initialEnabled }: { initialEnabled: 
         <p className="text-sm font-medium text-text">AI coaching</p>
         <p className="mt-1 text-xs leading-5 text-text-3">
           Allow Progression to send workout details and, when connected, WHOOP or Google Health
-          recovery and sleep metrics to MiniMax to generate personalized coaching. MiniMax does not
-          receive your username, progress photos, or wearable access tokens. When off, coaching uses
-          calculations performed by Progression without sending data to MiniMax.
+          recovery and sleep metrics to our AI service to generate personalized coaching. The AI
+          service does not receive your username, progress photos, or wearable access tokens. When
+          off, coaching uses calculations performed by Progression without sharing data.
         </p>
       </div>
       <button

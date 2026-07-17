@@ -306,8 +306,8 @@ export default function ProgramBuilder({ aiConfigured }: { aiConfigured: boolean
     return (
       <Card className="p-6">
         <p className="text-sm text-text-3">
-          The AI service is not configured. Set <code className="text-text">MINIMAX_API_KEY</code>{" "}
-          in your environment to use the program builder.
+          The AI service is not configured. Add the AI provider credentials to the server
+          environment to use the program builder.
         </p>
       </Card>
     );
