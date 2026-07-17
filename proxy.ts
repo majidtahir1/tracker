@@ -9,6 +9,7 @@ const PUBLIC_PATHS = new Set([
   "/signup",
   "/connected",
   "/privacy",
+  "/support",
   "/api/whoop/callback",
   "/api/fitbit/callback",
   "/api/cron/notify", // bearer-token protected (CRON_SECRET), no session
