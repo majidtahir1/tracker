@@ -139,8 +139,8 @@ export default async function WelcomePage() {
             </Link>
           </div>
           <p className="mt-10 font-mono text-[11px] uppercase tracking-wider text-text-3">
-            WK 05 · UPPER A — BENCH PRESS 4 × 8–12 · RPE 8 · 82.5 KG{" "}
-            <span className="text-accent">→ 85 KG NEXT</span>
+            WK 05 · UPPER A — BENCH PRESS 3 × 6–8 · RIR 1–2 · 185 LB{" "}
+            <span className="text-accent">→ 190 LB NEXT</span>
           </p>
         </div>
       </section>
