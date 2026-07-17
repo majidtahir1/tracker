@@ -106,8 +106,11 @@
   --shadow-pr-v:    0 0 0 1px #4D7C0F40, 0 0 24px -4px #4D7C0F59;
 }
 
-/* ---- Dark theme (opt-in via toggle) — values moved verbatim from the old @theme ---- */
-:root[data-theme="dark"] {
+/* ---- Dark theme (opt-in via toggle) — values moved verbatim from the old @theme ----
+   `.force-dark` re-applies the same tokens to a subtree regardless of the visitor's
+   theme: the public marketing page (/welcome) commits to dark like the mobile app. */
+:root[data-theme="dark"],
+.force-dark {
   --bg:        #0A0B0D;
   --bg-subtle: #101114;
   --surface:   #16181C;
@@ -149,6 +152,46 @@
   --shadow-card-v:  0 1px 0 0 rgb(255 255 255 / 0.04) inset, 0 1px 2px 0 rgb(0 0 0 / 0.4);
   --shadow-raise-v: 0 1px 0 0 rgb(255 255 255 / 0.05) inset, 0 8px 24px -8px rgb(0 0 0 / 0.6);
   --shadow-pr-v:    0 0 0 1px #A3E63540, 0 0 24px -4px #A3E63559;
+}
+
+/* Tailwind's @theme aliases (--color-* → var(--bg) etc.) are computed at :root,
+   so overriding the raw vars on a subtree isn't enough: re-declare the aliases
+   on .force-dark so utilities re-resolve against the dark values above. */
+.force-dark {
+  --color-bg:        var(--bg);
+  --color-bg-subtle: var(--bg-subtle);
+  --color-surface:   var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+
+  --color-border:        var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-border-faint:  var(--border-faint);
+
+  --color-text:       var(--text);
+  --color-text-2:     var(--text-2);
+  --color-text-3:     var(--text-3);
+  --color-text-faint: var(--text-faint);
+
+  --color-accent:        var(--accent);
+  --color-accent-hover:  var(--accent-hover);
+  --color-accent-press:  var(--accent-press);
+  --color-accent-text:   var(--accent-text);
+  --color-accent-muted:  var(--accent-muted);
+  --color-accent-border: var(--accent-border);
+
+  --color-success:       var(--success);
+  --color-success-muted: var(--success-muted);
+  --color-warning:       var(--warning);
+  --color-warning-muted: var(--warning-muted);
+  --color-danger:        var(--danger);
+  --color-danger-muted:  var(--danger-muted);
+  --color-info:          var(--info);
+  --color-info-muted:    var(--info-muted);
+
+  --shadow-card:  var(--shadow-card-v);
+  --shadow-raise: var(--shadow-raise-v);
+  --shadow-pr:    var(--shadow-pr-v);
 }
 
 body {
