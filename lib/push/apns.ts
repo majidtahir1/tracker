@@ -211,25 +211,45 @@ function sendOne(config: ApnsConfig, jwt: string, deviceToken: string, payloadJs
 }
 
 /**
+ * Outcome of one send attempt, for observability and the test-push route.
+ * Tokens are truncated — never log or return full device tokens.
+ */
+export interface PushDeliveryResult {
+  tokenPreview: string;
+  status?: number;
+  reason?: string;
+}
+
+export interface PushSendReport {
+  configured: boolean;
+  tokens: number;
+  results: PushDeliveryResult[];
+}
+
+/**
  * Push a message to every device token on file for a user. No-op (dormant)
  * unless APNs credentials are configured. Never throws — push delivery is
  * best-effort and must not break the caller's flow (e.g. saving a recovery
- * log).
+ * log). Returns a report so callers can observe what happened.
  */
-export async function sendPushToUser(userId: string, msg: PushMessage): Promise<void> {
-  if (!isApnsConfigured()) return;
+export async function sendPushToUser(userId: string, msg: PushMessage): Promise<PushSendReport> {
+  const report: PushSendReport = { configured: isApnsConfigured(), tokens: 0, results: [] };
+  if (!report.configured) return report;
 
   try {
     const config = readConfig();
     const tokens = await prisma.pushToken.findMany({ where: { userId } });
-    if (tokens.length === 0) return;
+    report.tokens = tokens.length;
+    if (tokens.length === 0) return report;
 
     const jwt = buildApnsJwt();
     const payloadJson = JSON.stringify(buildApnsPayload(msg));
 
     for (const { token } of tokens) {
+      const tokenPreview = `${token.slice(0, 8)}…`;
       try {
         const { status, reason } = await sendOne(config, jwt, token, payloadJson);
+        report.results.push({ tokenPreview, status, reason });
         if (status === 410 || (reason && DEAD_TOKEN_REASONS.has(reason))) {
           await prisma.pushToken.delete({ where: { token } }).catch(() => {
             // Already gone — fine.
@@ -237,14 +257,20 @@ export async function sendPushToUser(userId: string, msg: PushMessage): Promise<
         }
         // Log every rejection — a silently swallowed 400/403 (wrong topic,
         // bad key environment, expired provider token) is undebuggable.
-        if (status !== 200) {
-          console.error(`[apns] push rejected: status=${status} reason=${reason ?? "?"}`);
+        // Log successes too: with no delivery log, "push never arrived" is
+        // indistinguishable from "push never sent".
+        if (status === 200) {
+          console.log(`[apns] delivered: token=${tokenPreview}`);
+        } else {
+          console.error(`[apns] push rejected: status=${status} reason=${reason ?? "?"} token=${tokenPreview}`);
         }
       } catch (err) {
         console.error("[apns] send failed", err);
+        report.results.push({ tokenPreview });
       }
     }
   } catch (err) {
     console.error("[apns] sendPushToUser failed", err);
   }
+  return report;
 }
