@@ -25,7 +25,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { API_URL, authorizedBlob, data, getSession, loadToken, post, request, saveToken, signIn, signOut, signUp, upload } from "./api";
@@ -34,6 +34,54 @@ import ProgramEditor from "./ProgramEditor";
 import { WearableRow } from "./ConnectWearable";
 
 type View = "dashboard" | "workout" | "history" | "analytics" | "exercises" | "records" | "recovery" | "programs" | "photos" | "settings";
+
+/**
+ * Register this device for APNs and store the token on the server. Resolves
+ * with a user-facing status message — every failure path (permission denied,
+ * APNs registration error, server save failure) produces a message instead
+ * of failing silently.
+ *
+ * APNs device tokens rotate when the app is updated or reinstalled, so this
+ * is also called automatically on every launch (when permission was already
+ * granted) to keep the server-side token fresh.
+ */
+async function registerDeviceForPush(): Promise<string> {
+  if (!Capacitor.isNativePlatform()) return "Push notifications need the iOS app.";
+  const permission = await PushNotifications.requestPermissions();
+  if (permission.receive !== "granted") {
+    return "Notification permission was not granted. Enable notifications for this app in the iOS Settings app, then try again.";
+  }
+  return await new Promise<string>((resolve) => {
+    let regHandle: PluginListenerHandle | undefined;
+    let errHandle: PluginListenerHandle | undefined;
+    let settled = false;
+    const finish = (message: string) => {
+      if (settled) return;
+      settled = true;
+      void regHandle?.remove();
+      void errHandle?.remove();
+      resolve(message);
+    };
+    void (async () => {
+      regHandle = await PushNotifications.addListener("registration", async (registration) => {
+        try {
+          await request("/api/push/register", { method: "POST", body: JSON.stringify({ token: registration.value, platform: "ios" }) });
+          finish("Notifications enabled.");
+        } catch (err) {
+          finish(`Could not save the device token: ${err instanceof Error ? err.message : "request failed"}`);
+        }
+      });
+      errHandle = await PushNotifications.addListener("registrationError", (error) => {
+        finish(`iOS did not issue a device token (${error.error || "unknown error"}).`);
+      });
+      try {
+        await PushNotifications.register();
+      } catch (err) {
+        finish(`Registration failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    })();
+  });
+}
 type Theme = "light" | "dark";
 type User = { id: string; name: string; username?: string };
 type Json = Record<string, any>;
@@ -102,6 +150,21 @@ export default function App() {
     void data<Json>("onboarding")
       .then((d) => { if (d.shouldOnboard) setWizard(d as OnboardingData); })
       .catch(() => {}); // best-effort — never block the app on this
+  }, [user]);
+
+  // Keep the APNs device token fresh on the server: tokens rotate when the
+  // app is updated or reinstalled, and the server prunes tokens APNs reports
+  // as unregistered — without this, push delivery silently stops after an
+  // app update. Only re-registers when permission was already granted (no
+  // unprompted system dialog).
+  useEffect(() => {
+    if (!user || !Capacitor.isNativePlatform()) return;
+    void (async () => {
+      try {
+        const permission = await PushNotifications.checkPermissions();
+        if (permission.receive === "granted") await registerDeviceForPush();
+      } catch { /* best-effort — the next launch retries */ }
+    })();
   }, [user]);
 
   useEffect(() => {
@@ -608,11 +671,20 @@ function PhotoThumb({ photo }: { photo: Json }) { const [src, setSrc] = useState
 function SettingsScreen({ user, theme, onThemeChange, onSignedOut }: { user: User; theme: Theme; onThemeChange: (theme: Theme) => void; onSignedOut: () => void }) {
   const state = useData("settings"); const d = state.value; const [deleteOpen, setDeleteOpen] = useState(false); const [password, setPassword] = useState(""); const [confirm, setConfirm] = useState(""); const [message, setMessage] = useState("");
   async function setConsent(enabled: boolean) { await post("/api/mobile/settings", { action: "aiConsent", enabled }); await state.reload(); }
-  async function enablePush() {
-    if (!Capacitor.isNativePlatform()) return;
-    const permission = await PushNotifications.requestPermissions(); if (permission.receive !== "granted") { setMessage("Notification permission was not granted."); return; }
-    const handle = await PushNotifications.addListener("registration", async (registration) => { await request("/api/push/register", { method: "POST", body: JSON.stringify({ token: registration.value, platform: "ios" }) }); setMessage("Notifications enabled."); await handle.remove(); });
-    await PushNotifications.register();
+  async function enablePush() { setMessage(""); setMessage(await registerDeviceForPush()); }
+  async function testPush() {
+    setMessage("");
+    try {
+      const report = await request<{ configured: boolean; tokens: number; results: { status?: number; reason?: string }[] }>("/api/push/test", { method: "POST", body: "{}" });
+      if (!report.configured) setMessage("The server has no APNs credentials configured.");
+      else if (report.tokens === 0) setMessage("No device token on file for your account — tap Push notifications above first.");
+      else {
+        const rejected = report.results.find((r) => r.status !== 200);
+        setMessage(rejected
+          ? `APNs rejected the test push (status ${rejected.status}${rejected.reason ? `, ${rejected.reason}` : ""}).`
+          : "Test push sent — watch for the banner.");
+      }
+    } catch (err) { setMessage(err instanceof Error ? err.message : "Test push failed."); }
   }
   async function remove() { await request("/api/auth/delete-user", { method: "POST", body: JSON.stringify({ password }) }); await saveToken(null); onSignedOut(); }
   return <Screen title="Settings" eyebrow={user.username || user.name}>
@@ -622,7 +694,7 @@ function SettingsScreen({ user, theme, onThemeChange, onSignedOut }: { user: Use
     </div></section>
     <AsyncState loading={state.loading} error={state.error} />{d && <>
     <section className="panel settings-section"><h2>Connected services</h2><WearableRow label="WHOOP" provider="whoop" status={d.whoop} onStarted={() => setMessage("Finish connecting in the browser, then come back and tap refresh.")} /><WearableRow label="Fitbit / Google Health" provider="fitbit" status={d.fitbit} onStarted={() => setMessage("Finish connecting in the browser, then come back and tap refresh.")} /></section>
-    <section className="panel settings-section"><h2>Permissions</h2><SettingToggle label="AI coaching" description="Send workout and connected recovery or sleep context to the AI service for personalized coaching." checked={d.settings?.aiDataSharingEnabled === true} onChange={setConsent} /><button className="settings-command" onClick={enablePush}><span><strong>Push notifications</strong><small>Briefs, streak reminders, records, and reconnect alerts.</small></span><ChevronRight size={18} /></button>{message && <p className="notice">{message}</p>}</section>
+    <section className="panel settings-section"><h2>Permissions</h2><SettingToggle label="AI coaching" description="Send workout and connected recovery or sleep context to the AI service for personalized coaching." checked={d.settings?.aiDataSharingEnabled === true} onChange={setConsent} /><button className="settings-command" onClick={enablePush}><span><strong>Push notifications</strong><small>Briefs, streak reminders, records, and reconnect alerts.</small></span><ChevronRight size={18} /></button><button className="settings-command" onClick={testPush}><span><strong>Send test notification</strong><small>Verify push delivery end to end.</small></span><ChevronRight size={18} /></button>{message && <p className="notice">{message}</p>}</section>
     <section className="panel settings-section"><h2>Privacy and account</h2><button className="settings-command" onClick={() => window.open(`${API_URL}/privacy`, "_blank")}><span><strong>Privacy Policy</strong><small>Data use, retention, providers, and your choices.</small></span><Shield size={18} /></button>{!deleteOpen ? <button className="settings-command danger" onClick={() => setDeleteOpen(true)}><span><strong>Delete account</strong><small>Permanently remove your account and all stored data.</small></span><ChevronRight size={18} /></button> : <div className="delete-form"><strong>This cannot be undone</strong><p>Workouts, measurements, photos, wearable connections, tokens, and credentials will be deleted.</p><input type="password" placeholder="Confirm password" value={password} onChange={(e) => setPassword(e.target.value)} /><input placeholder="Type DELETE" value={confirm} onChange={(e) => setConfirm(e.target.value)} /><button className="button danger full" disabled={!password || confirm !== "DELETE"} onClick={remove}>Permanently delete account</button><button className="button secondary full" onClick={() => setDeleteOpen(false)}>Cancel</button></div>}</section>
     <button className="button secondary full" onClick={async () => { await signOut(); onSignedOut(); }}><LogOut size={17} /> Sign out</button>
   </>}</Screen>;

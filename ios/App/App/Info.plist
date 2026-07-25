@@ -58,5 +58,7 @@
 	</dict>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose progress photos from your library.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Save progress photos you capture to your library.</string>
 </dict>
 </plist>

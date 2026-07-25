@@ -22,6 +22,14 @@ export async function deliverPush(
   } catch {
     return false;
   }
-  await sendPushToUser(userId, msg);
+  const report = await sendPushToUser(userId, msg);
+  if (!report.configured) {
+    // APNs isn't configured — nothing was or could be sent. Release the
+    // dedupe claim so the push goes out once credentials are in place
+    // instead of being silently burned for this key.
+    console.warn("[push] APNs not configured — releasing dedupe claim", dedupeKey);
+    await prisma.pushSent.deleteMany({ where: { userId, dedupeKey } });
+    return false;
+  }
   return true;
 }
