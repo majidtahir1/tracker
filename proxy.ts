@@ -4,6 +4,11 @@ import { getSessionCookie } from "better-auth/cookies";
 // OAuth callbacks and the post-OAuth landing page must work without a
 // session: on mobile the flow finishes in Safari, not the app's webview.
 // Callbacks identify the user via the single-use DB state (lib/oauth-state).
+//
+// /api/mobile/ and /api/push/ authenticate with a Bearer token at the route
+// level (the iOS app holds no session cookie), so they must pass through
+// here — otherwise the redirect below turns their responses into a 307 to
+// /login, which the Capacitor webview surfaces as a fetch "Load failed".
 const PUBLIC_PATHS = new Set([
   "/welcome",
   "/login",
@@ -18,7 +23,9 @@ const PUBLIC_PATHS = new Set([
 
 export function proxy(request: NextRequest) {
   const isPublic =
-    PUBLIC_PATHS.has(request.nextUrl.pathname) || request.nextUrl.pathname.startsWith("/api/mobile/");
+    PUBLIC_PATHS.has(request.nextUrl.pathname) ||
+    request.nextUrl.pathname.startsWith("/api/mobile/") ||
+    request.nextUrl.pathname.startsWith("/api/push/");
   const hasSession = Boolean(getSessionCookie(request));
   if (!hasSession && !isPublic) {
     // Logged-out visitors hitting the app root get the marketing page;
