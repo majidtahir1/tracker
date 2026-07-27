@@ -95,6 +95,11 @@ button { color: inherit; }
 .coach-card p, .coach-card blockquote { color: var(--muted); font-size: 13px; line-height: 1.5; }
 .coach-card p { margin: 0; }
 .coach-card blockquote { margin: 13px 0 0; padding-top: 12px; border-top: 1px solid var(--border-faint); color: var(--text-2); font-style: italic; }
+.consent-list { margin: 10px 0 0; padding-left: 20px; display: grid; gap: 6px; }
+.consent-list li { font-size: 13px; line-height: 1.5; color: var(--text-2); }
+.consent-fine { display: block; margin: 10px 0 12px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.coach-card .button + .button { margin-top: 8px; }
+.builder-locked .coach-card { margin-bottom: 8px; text-align: left; }
 .recap-banner { margin-bottom: 10px; background: var(--accent-muted); }
 .recap-banner h2 { font-size: 15px; }
 .coach-label .coach-dismiss { margin-left: auto; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; border-radius: 5px; color: var(--muted); }

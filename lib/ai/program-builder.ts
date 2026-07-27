@@ -224,6 +224,15 @@ export function catalogPromptLines(catalog: CatalogExercise[]): string {
     .join("\n");
 }
 
+/**
+ * Privacy: the prompt gets the display name only — the privacy policy promises
+ * MiniMax never receives the login username, so it must not be a fallback here.
+ */
+export function athleteDisplayName(name: string | null | undefined): string {
+  const trimmed = (name ?? "").trim();
+  return trimmed || "athlete";
+}
+
 export function intakePrompt(
   intake: BuilderIntake,
   catalog: CatalogExercise[],

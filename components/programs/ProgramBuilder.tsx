@@ -5,12 +5,14 @@
  * program preview → finalize (save / save & activate).
  */
 import { useEffect, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bot, Check, Loader2, Send, Sparkles } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Label, Select, Textarea } from "@/components/ui/Input";
 import { finalizeDraftProgram, runBuilderTurn } from "@/lib/actions/program-builder";
+import AiConsentPrompt from "@/components/ai/AiConsentPrompt";
 import ProgramPhaseView, {
   MUSCLE_LABELS,
   type PhaseViewData,
@@ -190,7 +192,9 @@ function DraftPreview({
 }
 
 
-export default function ProgramBuilder({ aiConfigured }: { aiConfigured: boolean }) {
+export default function ProgramBuilder({ aiConfigured, consentGranted }: { aiConfigured: boolean; consentGranted: boolean }) {
+  const [granted, setGranted] = useState(consentGranted);
+  const [declined, setDeclined] = useState(false);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -309,6 +313,32 @@ export default function ProgramBuilder({ aiConfigured }: { aiConfigured: boolean
           The AI service is not configured. Add the AI provider credentials to the server
           environment to use the program builder.
         </p>
+      </Card>
+    );
+  }
+
+  if (!granted) {
+    return (
+      <Card className="max-w-2xl border-accent-border bg-accent-muted p-6">
+        {declined ? (
+          <div className="text-sm leading-relaxed text-text-2">
+            <p>
+              The program builder generates your plan with AI coaching, which is currently off, so
+              it can&apos;t run. You can turn it on any time in{" "}
+              <Link href="/settings" className="font-medium text-accent">Settings → Privacy</Link>, or{" "}
+              <Link href="/programs" className="font-medium text-accent">build a program yourself</Link>.
+            </p>
+            <button
+              type="button"
+              onClick={() => setDeclined(false)}
+              className="mt-3 text-xs font-semibold text-accent"
+            >
+              Review AI coaching again
+            </button>
+          </div>
+        ) : (
+          <AiConsentPrompt onDecided={(enabled) => (enabled ? setGranted(true) : setDeclined(true))} />
+        )}
       </Card>
     );
   }

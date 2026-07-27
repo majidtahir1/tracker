@@ -8,3 +8,12 @@ export async function hasAiDataConsent(userId: string): Promise<boolean> {
   });
   return settings?.aiDataSharingEnabled === true;
 }
+
+/** Upsert payload for an explicit allow/decline decision on the consent prompt. */
+export function aiConsentUpdate(enabled: boolean, now: string) {
+  return {
+    aiDataSharingEnabled: enabled,
+    aiDataConsentAt: enabled ? now : null,
+    aiConsentDecidedAt: now,
+  };
+}

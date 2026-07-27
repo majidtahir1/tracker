@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  athleteDisplayName,
   validateDraft,
   computeVolume,
   type CatalogExercise,
@@ -118,4 +119,14 @@ test("slotSetsForPhase halves sets on deload", () => {
   const { draft } = validateDraft(validProgram(), byName);
   assert.equal(slotSetsForPhase(draft!, 1, "Lat Pulldown", 3, "deload"), 2);
   assert.equal(slotSetsForPhase(draft!, 1, "Dumbbell Hip Thrust", 4, "deload"), 2);
+});
+
+test("athleteDisplayName uses the display name when present", () => {
+  assert.equal(athleteDisplayName("  Majid "), "Majid");
+});
+
+test("athleteDisplayName never falls back to a login username", () => {
+  assert.equal(athleteDisplayName(null), "athlete");
+  assert.equal(athleteDisplayName(undefined), "athlete");
+  assert.equal(athleteDisplayName("   "), "athlete");
 });

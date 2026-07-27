@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { updateAiDataConsent } from "@/lib/actions/settings";
+import { AI_CONSENT_COPY as COPY } from "@/lib/ai/consent-copy";
 
 export default function AiDataConsentCard({ initialEnabled }: { initialEnabled: boolean }) {
   const [enabled, setEnabled] = useState(initialEnabled);
@@ -18,11 +19,13 @@ export default function AiDataConsentCard({ initialEnabled }: { initialEnabled: 
     <div className="flex items-start justify-between gap-5">
       <div>
         <p className="text-sm font-medium text-text">AI coaching</p>
+        <p className="mt-1 text-xs leading-5 text-text-3">{COPY.intro}</p>
+        <ul className="mt-1 list-disc pl-4 text-xs leading-5 text-text-3">
+          {COPY.sends.map((line) => <li key={line}>{line}</li>)}
+        </ul>
         <p className="mt-1 text-xs leading-5 text-text-3">
-          Allow Progression to send workout details and, when connected, WHOOP or Google Health
-          recovery and sleep metrics to our AI service to generate personalized coaching. The AI
-          service does not receive your username, progress photos, or wearable access tokens. When
-          off, coaching uses calculations performed by Progression without sharing data.
+          {COPY.recipient} When off, coaching uses calculations performed by Progression without
+          sharing data.
         </p>
       </div>
       <button
