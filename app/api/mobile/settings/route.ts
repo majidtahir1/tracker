@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { cloneBuiltInProgram, isOwnedProgram } from "@/lib/program-access";
+import { aiConsentUpdate } from "@/lib/ai/consent";
 
 export async function OPTIONS() {
   return new Response(null, { status: 204 });
@@ -33,17 +34,11 @@ export async function POST(request: Request) {
     return Response.json({ error: "Unknown settings action" }, { status: 400 });
   }
   const enabled = body.enabled === true;
+  const data = aiConsentUpdate(enabled, new Date().toISOString());
   await prisma.appSettings.upsert({
     where: { userId: session.user.id },
-    create: {
-      userId: session.user.id,
-      aiDataSharingEnabled: enabled,
-      aiDataConsentAt: enabled ? new Date().toISOString() : null,
-    },
-    update: {
-      aiDataSharingEnabled: enabled,
-      aiDataConsentAt: enabled ? new Date().toISOString() : null,
-    },
+    create: { userId: session.user.id, ...data },
+    update: data,
   });
   return Response.json({ data: { enabled } });
 }

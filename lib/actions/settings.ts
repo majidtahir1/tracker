@@ -6,6 +6,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/session";
+import { aiConsentUpdate } from "@/lib/ai/consent";
 
 export interface NotificationPrefs {
   notifyMorningBrief: boolean;
@@ -29,18 +30,11 @@ export async function updateNotificationPrefs(prefs: NotificationPrefs): Promise
 
 export async function updateAiDataConsent(enabled: boolean): Promise<{ ok: boolean }> {
   const userId = await requireUserId();
-  const value = Boolean(enabled);
+  const data = aiConsentUpdate(Boolean(enabled), new Date().toISOString());
   await prisma.appSettings.upsert({
     where: { userId },
-    create: {
-      userId,
-      aiDataSharingEnabled: value,
-      aiDataConsentAt: value ? new Date().toISOString() : null,
-    },
-    update: {
-      aiDataSharingEnabled: value,
-      aiDataConsentAt: value ? new Date().toISOString() : null,
-    },
+    create: { userId, ...data },
+    update: data,
   });
   revalidatePath("/settings");
   revalidatePath("/");

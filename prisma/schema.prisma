@@ -749,6 +749,9 @@ model AppSettings {
   /// Explicit permission to send workout and health context to MiniMax.
   aiDataSharingEnabled   Boolean @default(false)
   aiDataConsentAt        String?
+  /// ISO datetime of the user's most recent allow/decline decision on the AI
+  /// consent prompt; null = never asked, UI shows the just-in-time prompt.
+  aiConsentDecidedAt     String?
   userId                 String  @unique
   user                   User    @relation("AppSettingsUser", fields: [userId], references: [id], onDelete: Cascade)
   activeProgramId        String?
