@@ -3,13 +3,23 @@
 import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/Card";
+import AiConsentPrompt from "@/components/ai/AiConsentPrompt";
 import { getLatestCoachBrief } from "@/lib/actions/dashboard-coach";
 import type { CoachBriefData } from "@/lib/ai/dashboard-coach";
 
-export default function CoachBriefCard() {
+export default function CoachBriefCard({ consentUndecided }: { consentUndecided: boolean }) {
+  const [needsConsent, setNeedsConsent] = useState(consentUndecided);
   const [brief, setBrief] = useState<CoachBriefData | null>(null);
   const [loaded, setLoaded] = useState(false);
-  useEffect(() => { let active = true; getLatestCoachBrief().then((value) => { if (active) { setBrief(value); setLoaded(true); } }); return () => { active = false; }; }, []);
+  useEffect(() => {
+    if (needsConsent) return;
+    let active = true;
+    getLatestCoachBrief().then((value) => { if (active) { setBrief(value); setLoaded(true); } });
+    return () => { active = false; };
+  }, [needsConsent]);
+  if (needsConsent) return <Card className="border-accent-border bg-accent-muted p-5">
+    <AiConsentPrompt onDecided={() => setNeedsConsent(false)} />
+  </Card>;
   if (loaded && !brief) return null;
   return <Card className="border-accent-border bg-accent-muted p-5">
     <div className="flex items-start gap-3">

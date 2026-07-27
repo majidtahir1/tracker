@@ -29,7 +29,10 @@ export default async function DashboardPage() {
   // First-run wizard: only for accounts that never finished it and never trained.
   const userId = await requireUserId();
   const [settings, completedCount] = await Promise.all([
-    prisma.appSettings.findUnique({ where: { userId }, select: { onboardedAt: true } }),
+    prisma.appSettings.findUnique({
+      where: { userId },
+      select: { onboardedAt: true, aiConsentDecidedAt: true },
+    }),
     prisma.workoutSession.count({ where: { userId, status: "COMPLETED" } }),
   ]);
   if (shouldOnboard(settings, completedCount)) redirect("/onboarding");
@@ -63,7 +66,7 @@ export default async function DashboardPage() {
         actions={blockChip ? <Badge className="px-3 py-1.5 text-xs">{blockChip}</Badge> : undefined}
       />
 
-      <CoachBriefCard />
+      <CoachBriefCard consentUndecided={settings?.aiConsentDecidedAt == null} />
 
       <NextWorkoutCard next={data.nextWorkout} isNewUser={!data.lastWorkout} />
 
