@@ -25,7 +25,6 @@ import { getCalendarData, parseMonthParam } from "@/lib/queries/calendar";
 import { getWhoopStatus } from "@/lib/queries/whoop";
 import { getFitbitStatus } from "@/lib/queries/fitbit";
 import { getLatestCoachBrief } from "@/lib/actions/dashboard-coach";
-import { hasAiDataConsent } from "@/lib/ai/consent";
 
 export const dynamic = "force-dynamic";
 
@@ -45,11 +44,15 @@ export async function GET(
   let data: unknown;
   switch (section) {
     case "dashboard": {
-      const [dashboard, coachBrief] = await Promise.all([
+      const [dashboard, coachBrief, settings] = await Promise.all([
         getDashboardData(),
         getLatestCoachBrief(),
+        prisma.appSettings.findUnique({
+          where: { userId: session.user.id },
+          select: { aiConsentDecidedAt: true },
+        }),
       ]);
-      data = { ...dashboard, coachBrief };
+      data = { ...dashboard, coachBrief, aiConsentUndecided: settings?.aiConsentDecidedAt == null };
       break;
     }
     case "workout":
@@ -128,13 +131,17 @@ export async function GET(
       );
       break;
     case "programs": {
-      const [programs, aiConsent] = await Promise.all([
+      const [programs, settings] = await Promise.all([
         getPrograms(),
-        hasAiDataConsent(session.user.id),
+        prisma.appSettings.findUnique({
+          where: { userId: session.user.id },
+          select: { aiDataSharingEnabled: true, aiConsentDecidedAt: true },
+        }),
       ]);
       data = {
         ...programs,
-        aiConsent,
+        aiConsent: settings?.aiDataSharingEnabled === true,
+        aiConsentUndecided: settings?.aiConsentDecidedAt == null,
         aiConfigured: Boolean(process.env.MINIMAX_API_KEY),
       };
       break;

@@ -282,7 +282,8 @@ function DashboardScreen({ openWorkout, openPrograms }: { openWorkout: () => voi
   return <Screen title="Today" eyebrow={d?.position ? `Cycle ${d.position.cycleNumber} · Week ${d.position.week} · Phase ${d.position.phase}` : "Training overview"}>
     <AsyncState loading={state.loading} error={state.error} />
     {d && <>
-      {d.coachBrief && <section className="panel coach-card">
+      {d.aiConsentUndecided ? <AiConsentPanel onDecided={() => state.reload()} />
+        : d.coachBrief && <section className="panel coach-card">
         <div className="coach-label"><Bot size={17} /><span>{d.coachBrief.source === "minimax" ? "AI daily coach" : "Daily coach"}</span></div>
         <h2>{d.coachBrief.headline}</h2>
         <p>{d.coachBrief.message}</p>
@@ -342,6 +343,38 @@ function SessionLogger({ id, onFinished }: { id: string; onFinished: () => void 
     {recap && recap.forExerciseId === null && <RecapBanner recap={recap.data} onDismiss={() => setRecap(null)} />}
     {d && <button className="button primary full finish" onClick={finish}>Finish workout</button>}
   </Screen>;
+}
+
+// Mirrors lib/ai/consent-copy.ts — keep the disclosure text in sync.
+const AI_CONSENT = {
+  title: "Turn on AI coaching?",
+  intro: "Progression can generate personalized coaching by sending some of your training data to MiniMax, our AI service provider.",
+  sends: [
+    "Workout details: exercises, sets, weights, reps, effort, and PRs",
+    "Recovery and sleep metrics from WHOOP or Google Health, if connected",
+    "When you use the AI program builder: your display name, goals, equipment, and any injury or limitation notes you type",
+  ],
+  recipient: "This data goes only to MiniMax and only to generate your coaching. Your login username, password, progress photos, body measurements, nutrition entries, and wearable access tokens are never sent. You can change this anytime in Settings; details are in the privacy policy.",
+};
+
+function AiConsentPanel({ onDecided }: { onDecided: (enabled: boolean) => Promise<void> }) {
+  const [pending, setPending] = useState(false);
+  async function decide(enabled: boolean) {
+    setPending(true);
+    try {
+      await post("/api/mobile/settings", { action: "aiConsent", enabled });
+      await onDecided(enabled);
+    } finally { setPending(false); }
+  }
+  return <section className="panel coach-card">
+    <div className="coach-label"><Bot size={17} /><span>AI coaching</span></div>
+    <h2>{AI_CONSENT.title}</h2>
+    <p>{AI_CONSENT.intro}</p>
+    <ul className="consent-list">{AI_CONSENT.sends.map((line) => <li key={line}>{line}</li>)}</ul>
+    <small className="consent-fine">{AI_CONSENT.recipient}</small>
+    <button className="button primary full" disabled={pending} onClick={() => void decide(true)}>Allow AI coaching</button>
+    <button className="button secondary full" disabled={pending} onClick={() => void decide(false)}>Not now</button>
+  </section>;
 }
 
 function RecapBanner({ recap, onDismiss }: { recap: Json; onDismiss: () => void }) {
@@ -518,7 +551,10 @@ function ProgramsScreen({ openSettings, intent, onIntentConsumed }: { openSettin
   if (creating) return <ProgramEditor onClose={() => setCreating(false)} onSaved={async () => { setCreating(false); await state.reload(); }} />;
 
   if (building) return <Screen title="Create program" eyebrow="AI program designer">
-    {!d?.aiConsent ? <div className="panel builder-locked"><Bot size={24} /><h2>Enable AI coaching first</h2><p>Program generation shares your intake and exercise catalog with the AI service. Review and enable consent in Settings before generating.</p><button className="button primary full" onClick={openSettings}>Open Settings</button><button className="button secondary full" onClick={() => setBuilding(false)}>Back to programs</button></div>
+    {!d?.aiConsent ? <div className="panel builder-locked">
+        <AiConsentPanel onDecided={async (enabled) => { await state.reload(); if (!enabled) setBuilding(false); }} />
+        <button className="button secondary full" onClick={() => setBuilding(false)}>Back to programs</button>
+      </div>
       : !d?.aiConfigured ? <div className="panel builder-locked"><Bot size={24} /><h2>AI service is not configured</h2><p>Add the AI provider credentials to the server environment before generating a program.</p><button className="button secondary full" onClick={() => setBuilding(false)}>Back to programs</button></div>
       : <>
         {!draft ? <div className="panel builder-form">
@@ -694,7 +730,7 @@ function SettingsScreen({ user, theme, onThemeChange, onSignedOut }: { user: Use
     </div></section>
     <AsyncState loading={state.loading} error={state.error} />{d && <>
     <section className="panel settings-section"><h2>Connected services</h2><WearableRow label="WHOOP" provider="whoop" status={d.whoop} onStarted={() => setMessage("Finish connecting in the browser, then come back and tap refresh.")} /><WearableRow label="Fitbit / Google Health" provider="fitbit" status={d.fitbit} onStarted={() => setMessage("Finish connecting in the browser, then come back and tap refresh.")} /></section>
-    <section className="panel settings-section"><h2>Permissions</h2><SettingToggle label="AI coaching" description="Send workout and connected recovery or sleep context to the AI service for personalized coaching." checked={d.settings?.aiDataSharingEnabled === true} onChange={setConsent} /><button className="settings-command" onClick={enablePush}><span><strong>Push notifications</strong><small>Briefs, streak reminders, records, and reconnect alerts.</small></span><ChevronRight size={18} /></button><button className="settings-command" onClick={testPush}><span><strong>Send test notification</strong><small>Verify push delivery end to end.</small></span><ChevronRight size={18} /></button>{message && <p className="notice">{message}</p>}</section>
+    <section className="panel settings-section"><h2>Permissions</h2><SettingToggle label="AI coaching" description="Send workout details, connected recovery or sleep metrics, and program-builder intake (display name, goals, injury notes) to MiniMax for personalized coaching. Never sent: login username, password, photos, measurements, or tokens." checked={d.settings?.aiDataSharingEnabled === true} onChange={setConsent} /><button className="settings-command" onClick={enablePush}><span><strong>Push notifications</strong><small>Briefs, streak reminders, records, and reconnect alerts.</small></span><ChevronRight size={18} /></button><button className="settings-command" onClick={testPush}><span><strong>Send test notification</strong><small>Verify push delivery end to end.</small></span><ChevronRight size={18} /></button>{message && <p className="notice">{message}</p>}</section>
     <section className="panel settings-section"><h2>Privacy and account</h2><button className="settings-command" onClick={() => window.open(`${API_URL}/privacy`, "_blank")}><span><strong>Privacy Policy</strong><small>Data use, retention, providers, and your choices.</small></span><Shield size={18} /></button>{!deleteOpen ? <button className="settings-command danger" onClick={() => setDeleteOpen(true)}><span><strong>Delete account</strong><small>Permanently remove your account and all stored data.</small></span><ChevronRight size={18} /></button> : <div className="delete-form"><strong>This cannot be undone</strong><p>Workouts, measurements, photos, wearable connections, tokens, and credentials will be deleted.</p><input type="password" placeholder="Confirm password" value={password} onChange={(e) => setPassword(e.target.value)} /><input placeholder="Type DELETE" value={confirm} onChange={(e) => setConfirm(e.target.value)} /><button className="button danger full" disabled={!password || confirm !== "DELETE"} onClick={remove}>Permanently delete account</button><button className="button secondary full" onClick={() => setDeleteOpen(false)}>Cancel</button></div>}</section>
     <button className="button secondary full" onClick={async () => { await signOut(); onSignedOut(); }}><LogOut size={17} /> Sign out</button>
   </>}</Screen>;
