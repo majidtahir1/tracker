@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser, requireUserId } from "@/lib/session";
 import {
+  athleteDisplayName,
   computeVolume,
   intakePrompt,
   requestProgramDraft,
@@ -85,8 +86,7 @@ export async function runBuilderTurn(input: {
 
   const history: ChatTurn[] = [...input.history];
   if (history.length === 0) {
-    // Display name over login handle: "Majid" reads better than "majidt".
-    const athleteName = (user.name || user.username || "athlete").trim();
+    const athleteName = athleteDisplayName(user.name);
     history.push({ role: "user", content: intakePrompt(input.intake, list, athleteName) });
   } else if (input.userMessage && input.userMessage.trim()) {
     history.push({ role: "user", content: input.userMessage.trim().slice(0, 2000) });
