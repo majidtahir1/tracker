@@ -9,7 +9,7 @@ export default function PrivacyPage() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-accent">Progression</p>
           <h1 className="mt-2 font-display text-3xl font-semibold text-text">Privacy Policy</h1>
-          <p className="mt-2 text-sm text-text-3">Effective July 15, 2026</p>
+          <p className="mt-2 text-sm text-text-3">Effective July 27, 2026</p>
         </div>
         <Link href="/" className="text-sm font-medium text-accent">Return to app</Link>
       </div>
@@ -26,7 +26,7 @@ export default function PrivacyPage() {
         </section>
         <section>
           <h2 className="text-lg font-semibold text-text">AI processing</h2>
-          <p className="mt-2">AI coaching is optional. When you explicitly enable it, relevant workout details and connected recovery or sleep metrics are sent to MiniMax to generate coaching responses. MiniMax does not receive your Progression username, password, progress photos, or wearable authorization tokens. Disabling AI processing stops future disclosures and uses Progression&apos;s on-server calculations instead.</p>
+          <p className="mt-2">AI coaching is optional and off by default. Progression asks for your permission in the app before any data is shared. When you explicitly enable it, the following is sent to MiniMax, our AI service provider, to generate coaching responses: your workout details (exercises, sets, weights, reps, effort, and records), recovery and sleep metrics from connected wearables, and — when you use the AI program builder — your display name and the goals, equipment, and any injury or limitation notes you enter. MiniMax does not receive your login username, password, progress photos, body measurements, nutrition entries, or wearable authorization tokens, and this data is used only to generate your coaching. Disabling AI processing in Settings stops future disclosures and uses Progression&apos;s on-server calculations instead.</p>
         </section>
         <section>
           <h2 className="text-lg font-semibold text-text">Service providers</h2>
