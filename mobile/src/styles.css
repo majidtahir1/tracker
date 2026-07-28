@@ -113,6 +113,9 @@ button { color: inherit; }
 .swap-toggle { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
 .swap-list { margin: 4px 0 10px; }
 .swap-empty { display: block; padding: 6px 0; color: var(--muted); }
+.set-prev { margin: 2px 0 8px 34px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--muted); }
+.set-prev em { font-style: normal; }
+.set-prev em.beat { color: var(--success, var(--accent)); font-weight: 700; }
 .consent-list { margin: 10px 0 0; padding-left: 20px; display: grid; gap: 6px; }
 .consent-list li { font-size: 13px; line-height: 1.5; color: var(--text-2); }
 .consent-fine { display: block; margin: 10px 0 12px; color: var(--muted); font-size: 11px; line-height: 1.5; }

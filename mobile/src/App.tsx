@@ -457,7 +457,7 @@ function ExerciseLogger({ exercise, refresh, onExerciseComplete }: { exercise: J
       {alternatives.map((alt) => <button key={alt.id} className="picker-row" disabled={swapPending} onClick={() => void swapTo(alt.id)}><span>{alt.name}</span><small>{swapPending ? "Swapping…" : "Use instead"}</small></button>)}
       {swapError && <p className="coach-error">{swapError}</p>}
     </div>}
-    {rows.map((number) => <SetRow key={number} exerciseId={exercise.sessionExerciseId} number={number} initial={existing.get(number)} targetWeight={exercise.targetWeight} refresh={refresh} onSaved={afterSetSaved} />)}
+    {rows.map((number) => <SetRow key={number} exerciseId={exercise.sessionExerciseId} number={number} initial={existing.get(number)} prev={exercise.prevSets?.[number - 1] ?? null} targetWeight={exercise.targetWeight} refresh={refresh} onSaved={afterSetSaved} />)}
     <div className="coach-footer">
       <button className="button secondary coach-ask" disabled={doneCount === 0 || coachPending} onClick={askCoach}>{coachPending ? <><Loader2 size={15} className="spin" /> Reviewing sets…</> : <><Bot size={15} /> Ask Coach</>}</button>
       {doneCount === 0 && <small>Complete a set to ask the coach.</small>}
@@ -475,10 +475,15 @@ function ExerciseLogger({ exercise, refresh, onExerciseComplete }: { exercise: J
   </section>;
 }
 
-function SetRow({ exerciseId, number, initial, targetWeight, refresh, onSaved }: { exerciseId: string; number: number; initial?: Json; targetWeight: number | null; refresh: () => Promise<void>; onSaved: (number: number) => void }) {
+function SetRow({ exerciseId, number, initial, prev, targetWeight, refresh, onSaved }: { exerciseId: string; number: number; initial?: Json; prev: Json | null; targetWeight: number | null; refresh: () => Promise<void>; onSaved: (number: number) => void }) {
   const [weight, setWeight] = useState(String(initial?.weight ?? targetWeight ?? "")); const [reps, setReps] = useState(String(initial?.reps ?? "")); const [rir, setRir] = useState(String(initial?.rir ?? "")); const [saving, setSaving] = useState(false);
   async function save() { setSaving(true); await post("/api/mobile/workout", { action: "logSet", sessionExerciseId: exerciseId, setNumber: number, weight: Number(weight), reps: Number(reps), rir: rir === "" ? null : Number(rir), completed: true }); onSaved(number); await refresh(); setSaving(false); }
-  return <div className={initial?.completed ? "set-row complete" : "set-row"}><span className="set-number">{number}</span><label>lb<input inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} /></label><label>reps<input inputMode="numeric" value={reps} onChange={(e) => setReps(e.target.value)} /></label><label>RIR<input inputMode="numeric" value={rir} onChange={(e) => setRir(e.target.value)} /></label><button className="set-save" disabled={saving || weight === "" || reps === ""} onClick={save}>{saving ? "..." : initial?.completed ? "Saved" : "Done"}</button></div>;
+  // Last-session comparison (web parity): beat = completed and heavier, or same weight for more reps.
+  const beatWeight = prev != null && initial?.completed && initial.weight > prev.weight;
+  const beatReps = prev != null && initial?.completed && initial.weight >= prev.weight && initial.reps > prev.reps;
+  return <div className="set-block"><div className={initial?.completed ? "set-row complete" : "set-row"}><span className="set-number">{number}</span><label>lb<input inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} /></label><label>reps<input inputMode="numeric" value={reps} onChange={(e) => setReps(e.target.value)} /></label><label>RIR<input inputMode="numeric" value={rir} onChange={(e) => setRir(e.target.value)} /></label><button className="set-save" disabled={saving || weight === "" || reps === ""} onClick={save}>{saving ? "..." : initial?.completed ? "Saved" : "Done"}</button></div>
+    <div className="set-prev">{prev ? <>last time <em className={beatWeight ? "beat" : ""}>{prev.weight} lb</em> × <em className={beatReps ? "beat" : ""}>{prev.reps}</em>{prev.rir != null ? ` · RIR ${prev.rir}` : ""}</> : "last time —"}</div>
+  </div>;
 }
 
 function HistoryScreen() { const state = useData("history"); const groups = state.value as Json[] | null; return <Screen title="History" eyebrow="Training log"><AsyncState loading={state.loading} error={state.error} />{groups?.map((group) => <section key={group.weekStart}><h2 className="section-title">{group.label}</h2><div className="panel list-panel">{group.sessions.map((session: Json) => <div className="list-row" key={session.id}><div><strong>{session.name}</strong><small>{session.dateLabel} · {session.completedSets}/{session.targetSets} sets</small></div><span>{session.status === "COMPLETED" ? `${Math.round(session.totalVolume).toLocaleString()} lb` : session.status}</span></div>)}</div></section>)}{groups?.length === 0 && <div className="panel empty">Completed workouts will appear here.</div>}</Screen>; }
