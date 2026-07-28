@@ -4,7 +4,6 @@ export interface GuardrailInput {
   lastSet: { weight: number; reps: number; rir: number | null };
   targets: { repMin: number; repMax: number; rirMin: number; rirMax: number };
   weightIncrement: number;
-  recoveryScore: number | null;
   isDeload: boolean;
   deloadWeight: number | null;
   remainingSets: number;
@@ -22,9 +21,11 @@ export function calculateSetGuardrails(input: GuardrailInput): SetCoachGuardrail
     const ceiling = input.deloadWeight ?? set.weight;
     return { allowedActions: ["REPEAT", "REDUCE"], candidateWeight: Math.min(set.weight, ceiling), repeatWeight: Math.min(set.weight, ceiling), allowedWeightMin: round(ceiling * 0.9, step), allowedWeightMax: ceiling, repMin: targets.repMin, repMax: targets.repMax, reason: "Deload loading ceiling applies." };
   }
-  if ((input.recoveryScore != null && input.recoveryScore < 40) || set.reps < targets.repMin || set.rir === 0) {
+  // Performance signals only — recovery scores never change the number
+  // (same principle as lib/progression.ts, user decision 2026-07-10/28).
+  if (set.reps < targets.repMin || set.rir === 0) {
     const reduced = round(set.weight * 0.9, step);
-    return { allowedActions: ["REDUCE", "REPEAT"], candidateWeight: reduced, repeatWeight: set.weight, allowedWeightMin: reduced, allowedWeightMax: set.weight, repMin: targets.repMin, repMax: targets.repMax, reason: "Fatigue, effort, or reps indicate that load should not increase." };
+    return { allowedActions: ["REDUCE", "REPEAT"], candidateWeight: reduced, repeatWeight: set.weight, allowedWeightMin: reduced, allowedWeightMax: set.weight, repMin: targets.repMin, repMax: targets.repMax, reason: "Effort or reps indicate that load should not increase." };
   }
   const canIncrease = set.reps >= targets.repMax && set.rir != null && set.rir > targets.rirMax;
   return {

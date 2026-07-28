@@ -128,7 +128,7 @@ export function fatigueWarningNotification(userId: string, date: LocalDate, scor
     userId,
     type: "FATIGUE_WARNING",
     title: "Recovery is low",
-    body: `Score ${score}/100. Today's recommendations were reduced — consider lighter loads.`,
+    body: `Score ${score}/100. Weight targets are unchanged — listen to your body and back off if sets feel harder than usual.`,
     href: "/recovery",
     dedupeKey: `FATIGUE_WARNING:${date}`,
   };

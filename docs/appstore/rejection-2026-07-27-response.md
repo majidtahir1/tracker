@@ -5,7 +5,7 @@
 The app shares data with a third-party AI service (MiniMax) without in-app
 disclosure of what is sent and to whom, and without asking permission first.
 
-## What changed in build 18
+## What changed in build 19
 
 - Just-in-time consent prompt before any AI surface activates (dashboard coach
   card and AI program builder, iOS and web). It names MiniMax, itemizes the data
@@ -29,14 +29,14 @@ disclosure of what is sent and to whom, and without asking permission first.
    WHERE userId = (SELECT id FROM user WHERE username = 'demo');
    ```
 3. `npm run ios:sync` (bakes https://progression.fit — never the simulator
-   variant), archive and upload build 18 (distribution method: App Store
+   variant), archive and upload build 19 (distribution method: App Store
    Connect, never TestFlight Internal Only), attach to version 1.0, submit.
 
 ## Resolution Center reply (paste)
 
 Thank you for the review. Progression's AI coaching is an optional feature that
 is OFF by default; no user data is sent to any AI service until the user
-explicitly opts in. In build 18 we have made this explicit in the app:
+explicitly opts in. In build 19 we have made this explicit in the app:
 
 1. Before any AI feature first activates (the dashboard coach brief, or the AI
    program builder), the app now presents a consent prompt that discloses

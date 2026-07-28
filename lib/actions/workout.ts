@@ -555,15 +555,25 @@ export async function updateExerciseNotes(
 
 /** Cancel an in-progress session: deletes it (sets cascade). */
 export async function cancelWorkout(sessionId: string): Promise<void> {
+  await cancelWorkoutForMobile(sessionId);
+  revalidateWorkoutPaths();
+  redirect("/workout");
+}
+
+/** Same cancel semantics without the web redirect — safe across the mobile API. */
+export async function cancelWorkoutForMobile(
+  sessionId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const userId = await requireUserId();
   const session = await prisma.workoutSession.findUnique({
     where: { id: sessionId },
   });
-  if (session && session.userId === userId && session.status !== "COMPLETED") {
-    await prisma.workoutSession.deleteMany({
-      where: { id: sessionId, userId },
-    });
+  if (!session || session.userId !== userId) return { ok: false, error: "Workout not found" };
+  if (session.status === "COMPLETED") {
+    return { ok: false, error: "Completed workouts can't be canceled" };
   }
-  revalidateWorkoutPaths();
-  redirect("/workout");
+  await prisma.workoutSession.deleteMany({
+    where: { id: sessionId, userId },
+  });
+  return { ok: true };
 }

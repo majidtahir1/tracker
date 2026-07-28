@@ -36,7 +36,7 @@ Where: https://appstoreconnect.apple.com → My Apps → Progression → iOS App
         third-party account; the Google integration is additionally in a
         limited test rollout pending Google's API verification. All app
         functionality is fully testable without them."
-        PLUS (added for build 18, 5.1.1/5.1.2 remediation):
+        PLUS (added for build 19, 5.1.1/5.1.2 remediation):
         "AI coaching is optional and off by default. On first use the app
         presents a consent prompt disclosing the data sent and naming the
         recipient (MiniMax); declining keeps all features working without

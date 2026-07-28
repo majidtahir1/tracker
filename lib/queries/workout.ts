@@ -223,6 +223,8 @@ export interface ProgramWorkout {
 export interface ProgramOverview {
   id: string;
   name: string;
+  /** Only owned programs' templates pass the override/start ownership checks. */
+  isOwned: boolean;
   workouts: ProgramWorkout[];
 }
 
@@ -264,6 +266,7 @@ export async function getProgramOverview(): Promise<{
     .map((program) => ({
       id: program.id,
       name: program.name,
+      isOwned: program.ownerId === userId,
       workouts: program.workouts.map((template) => ({
         id: template.id,
         name: template.name,

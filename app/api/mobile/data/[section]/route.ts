@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { localToday } from "@/lib/dates";
 import { getDashboardData } from "@/lib/queries/dashboard";
-import { getWorkoutOverview, getSessionDetail, getHistory } from "@/lib/queries/workout";
+import { getWorkoutOverview, getProgramOverview, getSessionDetail, getHistory } from "@/lib/queries/workout";
 import { getAnalyticsData, parseAnalyticsRange } from "@/lib/queries/analytics";
 import { getExerciseLibrary } from "@/lib/queries/exercises";
 import { getRecordsData } from "@/lib/queries/records";
@@ -55,9 +55,19 @@ export async function GET(
       data = { ...dashboard, coachBrief, aiConsentUndecided: settings?.aiConsentDecidedAt == null };
       break;
     }
-    case "workout":
-      data = await getWorkoutOverview(url.searchParams.get("templateId") ?? undefined);
+    case "workout": {
+      const [overview, programOverview] = await Promise.all([
+        getWorkoutOverview(url.searchParams.get("templateId") ?? undefined),
+        getProgramOverview(),
+      ]);
+      data = {
+        ...overview,
+        ...programOverview,
+        // Only owned programs are startable via override (workout.ts ownership check).
+        programs: programOverview.programs.filter((p) => p.isOwned),
+      };
       break;
+    }
     case "session": {
       const id = url.searchParams.get("id");
       if (!id) return Response.json({ error: "Session id is required" }, { status: 400 });
