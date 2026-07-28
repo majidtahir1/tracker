@@ -1,8 +1,10 @@
 import { auth } from "@/lib/auth";
 import {
+  cancelWorkoutForMobile,
   finishWorkout,
   logSet,
   startWorkoutForMobile,
+  substituteExercise,
   updateExerciseNotes,
 } from "@/lib/actions/workout";
 import { askSetCoach } from "@/lib/actions/set-coach";
@@ -38,6 +40,16 @@ export async function POST(request: Request) {
       break;
     case "finish":
       result = await finishWorkout(String(body.sessionId ?? ""));
+      break;
+    case "cancel":
+      result = await cancelWorkoutForMobile(String(body.sessionId ?? ""));
+      break;
+    case "substitute":
+      result = await substituteExercise({
+        sessionExerciseId: String(body.sessionExerciseId ?? ""),
+        newExerciseId: String(body.newExerciseId ?? ""),
+        reason: "Swapped mid-session",
+      });
       break;
     case "askCoach":
       result = await askSetCoach(String(body.sessionExerciseId ?? ""));

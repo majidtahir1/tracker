@@ -15,6 +15,7 @@ import {
   LogOut,
   Moon,
   RefreshCw,
+  Repeat,
   Settings,
   Shield,
   Sparkles,
@@ -305,19 +306,35 @@ function DashboardScreen({ openWorkout, openPrograms }: { openWorkout: () => voi
 function Metric({ label, value, accent }: { label: string; value: React.ReactNode; accent?: boolean }) { return <div className="metric"><span>{label}</span><strong className={accent ? "accent" : ""}>{value}</strong></div>; }
 
 function WorkoutScreen({ openPrograms }: { openPrograms: () => void }) {
-  const overview = useData("workout");
+  const [overrideId, setOverrideId] = useState<string | null>(null);
+  const overview = useData("workout", overrideId ? `?templateId=${encodeURIComponent(overrideId)}` : "");
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   useEffect(() => { if (overview.value?.inProgress?.id) setSessionId(overview.value.inProgress.id); }, [overview.value]);
-  if (sessionId) return <SessionLogger id={sessionId} onFinished={() => { setSessionId(null); void overview.reload(); }} />;
+  if (sessionId) return <SessionLogger id={sessionId} onFinished={() => { setSessionId(null); setOverrideId(null); void overview.reload(); }} />;
   const d = overview.value;
   async function start() {
     if (!d?.next) return;
     const result = await post<Json>("/api/mobile/workout", { action: "start", templateId: d.next.templateId, date: d.next.date, scheduleOverride: d.next.isOverride });
     if (result.ok) setSessionId(result.sessionId);
   }
+  // Active program's workouts listed first in the picker.
+  const programs: Json[] = d?.programs
+    ? [...d.programs].sort((a: Json, b: Json) => Number(b.id === d.activeProgramId) - Number(a.id === d.activeProgramId))
+    : [];
   return <Screen title="Next workout" eyebrow={d?.position ? `Week ${d.position.week} · Phase ${d.position.phase}` : "Workout"}>
     <AsyncState loading={overview.loading} error={overview.error} />
-    {d?.next ? <><div className="panel workout-head"><span className="kicker">{d.next.dateLabel}</span><h2>{d.next.templateName}</h2><p>{d.next.totalSets} sets · about {d.next.estMinutes} min</p><button className="button primary full" onClick={start}>Start workout</button></div><div className="panel list-panel">{d.next.exercises.map((ex: Json) => <div className="list-row" key={ex.templateExerciseId}><div><strong>{ex.name}</strong><small>{ex.sets} × {ex.repMin}-{ex.repMax} · RIR {ex.rirMin}-{ex.rirMax}</small></div><span>{ex.weight == null ? "First time" : `${ex.weight} lb`}</span></div>)}</div></> : !overview.loading && <div className="panel empty">Choose and activate a program to begin training.<button className="button primary full empty-cta" onClick={openPrograms}>Go to Programs</button></div>}
+    {d?.next ? <><div className="panel workout-head"><span className="kicker">{d.next.isOverride ? "Instead of today's scheduled workout" : d.next.dateLabel}</span><h2>{d.next.templateName}</h2><p>{d.next.totalSets} sets · about {d.next.estMinutes} min</p><button className="button primary full" onClick={start}>Start workout</button>{d.next.isOverride && <button className="text-button picker-reset" onClick={() => { setOverrideId(null); setPicking(false); }}>Back to scheduled workout</button>}</div>
+    {!d.inProgress && programs.length > 0 && <div className="panel picker-panel">
+      <button className="picker-toggle" onClick={() => setPicking(!picking)}><span><Repeat size={16} /> Choose a different workout</span><ChevronRight size={17} className={picking ? "rot" : ""} /></button>
+      {picking && programs.map((program: Json) => <div key={program.id} className="picker-group">
+        <h3>{program.name}{program.id === d.activeProgramId ? " · active" : ""}</h3>
+        {program.workouts.map((w: Json) => <button key={w.id} className={w.id === d.next.templateId ? "picker-row current" : "picker-row"} onClick={() => { setOverrideId(w.id); }}>
+          <span>{w.name}</span><small>{w.exercises.length} exercises</small>
+        </button>)}
+      </div>)}
+    </div>}
+    <div className="panel list-panel">{d.next.exercises.map((ex: Json) => <div className="list-row" key={ex.templateExerciseId}><div><strong>{ex.name}</strong><small>{ex.sets} × {ex.repMin}-{ex.repMax} · RIR {ex.rirMin}-{ex.rirMax}</small></div><span>{ex.weight == null ? "First time" : `${ex.weight} lb`}</span></div>)}</div></> : !overview.loading && <div className="panel empty">Choose and activate a program to begin training.<button className="button primary full empty-cta" onClick={openPrograms}>Go to Programs</button></div>}
   </Screen>;
 }
 
@@ -326,7 +343,14 @@ function SessionLogger({ id, onFinished }: { id: string; onFinished: () => void 
   // Coach recap fired when an exercise's last set completes. forExerciseId is
   // the card it renders above (the next incomplete exercise), or null after the final one.
   const [recap, setRecap] = useState<{ forExerciseId: string | null; data: Json } | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelError, setCancelError] = useState("");
   async function finish() { const result = await post<Json>("/api/mobile/workout", { action: "finish", sessionId: id }); if (result.ok) onFinished(); }
+  async function cancel() {
+    setCancelError("");
+    const result = await post<Json>("/api/mobile/workout", { action: "cancel", sessionId: id }).catch(() => ({ ok: false, error: "Unable to cancel the workout." } as Json));
+    if (result.ok) onFinished(); else setCancelError(result.error || "Unable to cancel the workout.");
+  }
   async function fetchRecap(sessionExerciseId: string) {
     const exercises: Json[] = d?.session?.exercises ?? [];
     const idx = exercises.findIndex((ex) => ex.sessionExerciseId === sessionExerciseId);
@@ -342,6 +366,14 @@ function SessionLogger({ id, onFinished }: { id: string; onFinished: () => void 
     </div>)}
     {recap && recap.forExerciseId === null && <RecapBanner recap={recap.data} onDismiss={() => setRecap(null)} />}
     {d && <button className="button primary full finish" onClick={finish}>Finish workout</button>}
+    {d && (!cancelOpen
+      ? <button className="text-button cancel-workout" onClick={() => setCancelOpen(true)}>Cancel workout</button>
+      : <div className="panel cancel-confirm">
+          <strong>Discard this workout and its logged sets?</strong>
+          <button className="button danger full" onClick={() => void cancel()}>Discard workout</button>
+          <button className="button secondary full" onClick={() => setCancelOpen(false)}>Keep going</button>
+          {cancelError && <p className="coach-error">{cancelError}</p>}
+        </div>)}
   </Screen>;
 }
 
@@ -394,6 +426,20 @@ function ExerciseLogger({ exercise, refresh, onExerciseComplete }: { exercise: J
   const [coachPending, setCoachPending] = useState(false);
   const [coach, setCoach] = useState<Json | null>(null);
   const [coachError, setCoachError] = useState<string | null>(null);
+  const [swapOpen, setSwapOpen] = useState(false);
+  const [swapPending, setSwapPending] = useState(false);
+  const [swapError, setSwapError] = useState("");
+  const alternatives: Json[] = exercise.alternatives ?? [];
+  async function swapTo(newExerciseId: string) {
+    setSwapPending(true); setSwapError("");
+    try {
+      const result = await post<Json>("/api/mobile/workout", { action: "substitute", sessionExerciseId: exercise.sessionExerciseId, newExerciseId });
+      if (!result.ok) { setSwapError(result.error || "Unable to swap the exercise."); return; }
+      await refresh();
+      setSwapOpen(false);
+    } catch { setSwapError("Unable to swap the exercise."); }
+    finally { setSwapPending(false); }
+  }
   async function askCoach() {
     setCoachPending(true); setCoachError(null);
     const result = await post<Json>("/api/mobile/workout", { action: "askCoach", sessionExerciseId: exercise.sessionExerciseId }).catch(() => ({ ok: false, error: "Coach is unavailable right now." } as Json));
@@ -405,7 +451,13 @@ function ExerciseLogger({ exercise, refresh, onExerciseComplete }: { exercise: J
     const done = rows.every((n) => n === number || existing.get(n)?.completed);
     if (done && !existing.get(number)?.completed) void onExerciseComplete(exercise.sessionExerciseId);
   }
-  return <section className="panel exercise-panel"><div className="exercise-title"><div><h2>{exercise.name}</h2><p>{exercise.targetSets} × {exercise.targetRepMin}-{exercise.targetRepMax} · RIR {exercise.targetRirMin}-{exercise.targetRirMax}</p></div>{exercise.targetWeight != null && <span className="weight-target">{exercise.targetWeight} lb</span>}</div>{rows.map((number) => <SetRow key={number} exerciseId={exercise.sessionExerciseId} number={number} initial={existing.get(number)} targetWeight={exercise.targetWeight} refresh={refresh} onSaved={afterSetSaved} />)}
+  return <section className="panel exercise-panel"><div className="exercise-title"><div><h2>{exercise.name}</h2><p>{exercise.targetSets} × {exercise.targetRepMin}-{exercise.targetRepMax} · RIR {exercise.targetRirMin}-{exercise.targetRirMax}</p></div><div className="exercise-title-side">{exercise.targetWeight != null && <span className="weight-target">{exercise.targetWeight} lb</span>}<button className="text-button swap-toggle" onClick={() => { setSwapOpen(!swapOpen); setSwapError(""); }}><Repeat size={14} /> Swap</button></div></div>
+    {swapOpen && <div className="swap-list">
+      {alternatives.length === 0 && <small className="swap-empty">No curated alternatives for this exercise.</small>}
+      {alternatives.map((alt) => <button key={alt.id} className="picker-row" disabled={swapPending} onClick={() => void swapTo(alt.id)}><span>{alt.name}</span><small>{swapPending ? "Swapping…" : "Use instead"}</small></button>)}
+      {swapError && <p className="coach-error">{swapError}</p>}
+    </div>}
+    {rows.map((number) => <SetRow key={number} exerciseId={exercise.sessionExerciseId} number={number} initial={existing.get(number)} targetWeight={exercise.targetWeight} refresh={refresh} onSaved={afterSetSaved} />)}
     <div className="coach-footer">
       <button className="button secondary coach-ask" disabled={doneCount === 0 || coachPending} onClick={askCoach}>{coachPending ? <><Loader2 size={15} className="spin" /> Reviewing sets…</> : <><Bot size={15} /> Ask Coach</>}</button>
       {doneCount === 0 && <small>Complete a set to ask the coach.</small>}

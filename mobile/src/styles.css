@@ -95,6 +95,24 @@ button { color: inherit; }
 .coach-card p, .coach-card blockquote { color: var(--muted); font-size: 13px; line-height: 1.5; }
 .coach-card p { margin: 0; }
 .coach-card blockquote { margin: 13px 0 0; padding-top: 12px; border-top: 1px solid var(--border-faint); color: var(--text-2); font-style: italic; }
+.picker-panel { padding: 0; overflow: hidden; }
+.picker-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 14px 16px; font-size: 14px; font-weight: 600; }
+.picker-toggle span { display: flex; align-items: center; gap: 8px; }
+.picker-toggle svg.rot { transform: rotate(90deg); }
+.picker-group { padding: 2px 16px 12px; }
+.picker-group h3 { margin: 8px 0 6px; font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.picker-row { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 10px 12px; margin-top: 6px; border: 1px solid var(--border-faint, var(--muted)); border-radius: 10px; font-size: 14px; text-align: left; }
+.picker-row small { color: var(--muted); }
+.picker-row.current { border-color: var(--accent-border); }
+.picker-reset { display: block; width: 100%; margin-top: 10px; text-align: center; }
+.cancel-workout { display: block; width: 100%; margin: 14px 0 4px; text-align: center; color: var(--danger); }
+.cancel-confirm { margin-top: 14px; padding: 16px; text-align: center; }
+.cancel-confirm strong { display: block; margin-bottom: 12px; }
+.cancel-confirm .button + .button { margin-top: 8px; }
+.exercise-title-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.swap-toggle { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
+.swap-list { margin: 4px 0 10px; }
+.swap-empty { display: block; padding: 6px 0; color: var(--muted); }
 .consent-list { margin: 10px 0 0; padding-left: 20px; display: grid; gap: 6px; }
 .consent-list li { font-size: 13px; line-height: 1.5; color: var(--text-2); }
 .consent-fine { display: block; margin: 10px 0 12px; color: var(--muted); font-size: 11px; line-height: 1.5; }
