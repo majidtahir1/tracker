@@ -403,7 +403,7 @@ function AiConsentPanel({ onDecided }: { onDecided: (enabled: boolean) => Promis
     <h2>{AI_CONSENT.title}</h2>
     <p>{AI_CONSENT.intro}</p>
     <ul className="consent-list">{AI_CONSENT.sends.map((line) => <li key={line}>{line}</li>)}</ul>
-    <small className="consent-fine">{AI_CONSENT.recipient}</small>
+    <small className="consent-fine">{AI_CONSENT.recipient} <button className="consent-policy-link" onClick={() => window.open(`${API_URL}/privacy`, "_blank")}>Read the privacy policy</button></small>
     <button className="button primary full" disabled={pending} onClick={() => void decide(true)}>Allow AI coaching</button>
     <button className="button secondary full" disabled={pending} onClick={() => void decide(false)}>Not now</button>
   </section>;
