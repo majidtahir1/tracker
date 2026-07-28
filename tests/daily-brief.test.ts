@@ -26,11 +26,12 @@ test("recovered day: green-light headline, recap, workout, and a quote", () => {
   assert.equal(brief.source, "deterministic");
 });
 
-test("fatigued day: back-off headline and no hype quote", () => {
+test("fatigued day: recovery reported factually, no back-off directives (user decision 2026-07-28)", () => {
   const brief = composeDailyBrief({ ...base, recoveryScore: 31 });
-  assert.match(brief.headline, /Recovery is low/);
-  assert.match(brief.message, /keep the weights honest/);
-  assert.match(brief.encouragement, /Backing off today/);
+  assert.doesNotMatch(brief.headline, /Recovery is low/);
+  assert.match(brief.message, /31% recovered/);
+  assert.doesNotMatch(brief.message, /keep the weights honest/);
+  assert.doesNotMatch(brief.encouragement, /Backing off today/);
 });
 
 test("rest day with no whoop data: rest headline, rest-day guidance", () => {

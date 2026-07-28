@@ -15,7 +15,7 @@ import { callMiniMax, clip, type CoachBriefData } from "./dashboard-coach";
 import { hasAiDataConsent } from "./consent";
 
 const DAILY_BRIEF_SYSTEM_PROMPT =
-  "You are a direct, observant hypertrophy coach greeting an athlete at the start of their day. Using only the supplied facts: if a \"firstDay\" field is present, welcome them to their first day — no recap of yesterday, no talk of rest days or missing data; point them at today's workout and how to pick starting weights. Otherwise acknowledge yesterday (workout recap or rest). If a \"whoop\" block is present, read recovery and sleep conservatively (recovery below 40 or heavy sleep debt means advise backing off intensity today; 40-69 means manage load; 70+ is a green light); if there is no whoop block, never mention WHOOP, recovery scores, sleep, or syncing — the athlete does not track these. Tell them what's on tap today (the named workout, or rest). Close with genuine motivation — a short apt quote is welcome when recovery is decent, never when advising rest. No hype, no invented data, no medical advice. Return only JSON: {\"headline\":string,\"message\":string,\"encouragement\":string}. Keep the visible response under 80 words.";
+  "You are a direct, observant hypertrophy coach greeting an athlete at the start of their day. Using only the supplied facts: if a \"firstDay\" field is present, welcome them to their first day — no recap of yesterday, no talk of rest days or missing data; point them at today's workout and how to pick starting weights. Otherwise acknowledge yesterday (workout recap or rest). If a \"whoop\" block is present, treat it as light background context: mention recovery or sleep briefly at most, and never advise reducing loads or backing off based on those numbers alone — the athlete's logged training is the primary signal, and weight targets come from performance, not recovery. If there is no whoop block, never mention WHOOP, recovery scores, sleep, or syncing — the athlete does not track these. Tell them what's on tap today (the named workout, or rest). Close with genuine motivation — a short apt quote is welcome when recovery is decent, never when advising rest. No hype, no invented data, no medical advice. Return only JSON: {\"headline\":string,\"message\":string,\"encouragement\":string}. Keep the visible response under 80 words.";
 
 /** Short, non-cheesy training quotes for the deterministic path. */
 const QUOTES = [
@@ -76,14 +76,13 @@ export function composeDailyBrief(inputs: DailyBriefInputs): CoachBriefData {
       ? recoveryBand(inputs.recoveryScore)
       : null;
 
-  const headline =
-    band === "fatigued"
-      ? "Recovery is low — take it easy today"
-      : inputs.todayWorkout
-        ? band === "recovered"
-          ? `Green light: ${inputs.todayWorkout.name} today`
-          : `On tap today: ${inputs.todayWorkout.name}`
-        : "Rest day — recover on purpose";
+  // Recovery is reported factually below but never drives directives —
+  // performance decides loads, not the score (user decision 2026-07-28).
+  const headline = inputs.todayWorkout
+    ? band === "recovered"
+      ? `Green light: ${inputs.todayWorkout.name} today`
+      : `On tap today: ${inputs.todayWorkout.name}`
+    : "Rest day — recover on purpose";
 
   const parts: string[] = [];
   if (inputs.yesterday) {
@@ -110,18 +109,13 @@ export function composeDailyBrief(inputs: DailyBriefInputs): CoachBriefData {
     parts.push(
       inputs.todayWorkout.inProgress
         ? `${inputs.todayWorkout.name} is already underway — go close it out.`
-        : band === "fatigued"
-          ? `${inputs.todayWorkout.name} is scheduled${inputs.isDeloadWeek ? " (deload week)" : ""} — keep the weights honest and stop sets further from failure.`
-          : `${inputs.todayWorkout.name} is on the schedule${inputs.isDeloadWeek ? " — deload week, lighter by design" : ""}.`,
+        : `${inputs.todayWorkout.name} is on the schedule${inputs.isDeloadWeek ? " — deload week, lighter by design" : ""}.`,
     );
   } else {
     parts.push("Nothing scheduled — sleep, protein, and a walk are the workout today.");
   }
 
-  const encouragement =
-    band === "fatigued"
-      ? "Backing off today is how you show up stronger tomorrow."
-      : pickQuote(inputs.dayKey);
+  const encouragement = pickQuote(inputs.dayKey);
 
   return {
     headline: clip(headline, 100),

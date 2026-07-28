@@ -48,7 +48,7 @@ export async function askSetCoach(sessionExerciseId: string): Promise<SetCoachRe
   const guardrails = calculateSetGuardrails({
     lastSet: { weight: lastSet.weight, reps: lastSet.reps, rir: lastSet.rir },
     targets: { repMin: se.targetRepMin, repMax: se.targetRepMax, rirMin: se.targetRirMin, rirMax: se.targetRirMax },
-    weightIncrement: se.exercise.weightIncrement, recoveryScore: recovery.score,
+    weightIncrement: se.exercise.weightIncrement,
     isDeload: se.session.isDeload, deloadWeight: se.targetWeight, remainingSets,
   });
   const whoop = toCoachWhoopContext(whoopDay);

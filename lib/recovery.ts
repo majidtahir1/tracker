@@ -52,7 +52,7 @@ export function recoveryBand(score: number): RecoveryBand {
   return "fatigued";
 }
 
-/** <40 emits FATIGUE_WARNING and flips progression to REDUCE. */
+/** <40 emits FATIGUE_WARNING (advisory only — never changes recommendations). */
 export function isFatigued(score: number | null | undefined): boolean {
   return score != null && score < 40;
 }
