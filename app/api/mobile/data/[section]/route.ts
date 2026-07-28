@@ -22,8 +22,8 @@ import { isWhoopConfigured } from "@/lib/whoop/config";
 import { isFitbitConfigured } from "@/lib/fitbit/config";
 import { getGoalsPageData } from "@/lib/queries/goals";
 import { getCalendarData, parseMonthParam } from "@/lib/queries/calendar";
-import { getWhoopStatus } from "@/lib/queries/whoop";
-import { getFitbitStatus } from "@/lib/queries/fitbit";
+import { getWhoopStatus, maybeAutoSync } from "@/lib/queries/whoop";
+import { getFitbitStatus, maybeAutoSyncFitbit } from "@/lib/queries/fitbit";
 import { getLatestCoachBrief } from "@/lib/actions/dashboard-coach";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +44,9 @@ export async function GET(
   let data: unknown;
   switch (section) {
     case "dashboard": {
+      // Same throttled wearable pull the web dashboard does (15-min window) —
+      // without it, iOS-only users see recovery data from their last web visit.
+      await Promise.all([maybeAutoSync().catch(() => {}), maybeAutoSyncFitbit().catch(() => {})]);
       const [dashboard, coachBrief, settings] = await Promise.all([
         getDashboardData(),
         getLatestCoachBrief(),
@@ -120,6 +123,7 @@ export async function GET(
       data = await getRecordsData();
       break;
     case "recovery":
+      await Promise.all([maybeAutoSync().catch(() => {}), maybeAutoSyncFitbit().catch(() => {})]);
       data = await getRecoveryData(localToday());
       break;
     case "measurements":
