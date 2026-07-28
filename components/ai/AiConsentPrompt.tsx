@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { updateAiDataConsent } from "@/lib/actions/settings";
 import { AI_CONSENT_COPY as COPY } from "@/lib/ai/consent-copy";
@@ -27,7 +28,10 @@ export default function AiConsentPrompt({ onDecided }: { onDecided: (enabled: bo
         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed text-text-2">
           {COPY.sends.map((line) => <li key={line}>{line}</li>)}
         </ul>
-        <p className="mt-2 text-xs leading-5 text-text-3">{COPY.recipient}</p>
+        <p className="mt-2 text-xs leading-5 text-text-3">
+          {COPY.recipient}{" "}
+          <Link href="/privacy" className="font-medium text-accent">Read the privacy policy</Link>
+        </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <button
             type="button"
